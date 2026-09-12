@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #2c7a30;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: #1a2e1c;
+  background: #f7f8f6;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
