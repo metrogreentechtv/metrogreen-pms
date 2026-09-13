@@ -1,67 +1,162 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AppRole } from "@/lib/types";
 import { cx } from "@/components/ui";
+import { signOut } from "@/app/login/actions";
+import {
+  IconAuditLog,
+  IconCustomers,
+  IconDashboard,
+  IconEquipment,
+  IconProjectManagement,
+  IconProjects,
+  IconQuotations,
+  IconSettings,
+  IconSignOut,
+  IconUsers,
+} from "@/components/nav/icons";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊", roles: null },
-  { href: "/quotations", label: "Quotations", icon: "📄", roles: null },
-  { href: "/customers", label: "Customers", icon: "🏢", roles: null },
-  { href: "/equipment", label: "Equipment", icon: "🔧", roles: null },
-  { href: "/projects", label: "Projects", icon: "🏗️", roles: null },
+type IconComponent = (props: { className?: string }) => JSX.Element;
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: IconComponent;
+  roles: AppRole[] | null;
+}
+
+interface NavGroup {
+  label: string | null;
+  items: NavItem[];
+}
+
+const NAV: NavGroup[] = [
   {
-    href: "/settings",
-    label: "Settings",
-    icon: "⚙️",
-    roles: ["administrator", "management"] as AppRole[],
+    label: null,
+    items: [{ href: "/dashboard", label: "Dashboard", icon: IconDashboard, roles: null }],
   },
-] as const;
+  {
+    label: "Sales",
+    items: [
+      { href: "/customers", label: "Customers", icon: IconCustomers, roles: null },
+      { href: "/quotations", label: "Quotations", icon: IconQuotations, roles: null },
+    ],
+  },
+  {
+    label: "Projects",
+    items: [
+      { href: "/projects", label: "Projects", icon: IconProjects, roles: null },
+      { href: "/projects/management", label: "Project Management", icon: IconProjectManagement, roles: null },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [{ href: "/equipment", label: "Equipment", icon: IconEquipment, roles: null }],
+  },
+  {
+    label: "Admin",
+    items: [
+      {
+        href: "/users",
+        label: "Users",
+        icon: IconUsers,
+        roles: ["administrator"] as AppRole[],
+      },
+      {
+        href: "/settings",
+        label: "Settings",
+        icon: IconSettings,
+        roles: ["administrator", "management"] as AppRole[],
+      },
+      {
+        href: "/audit-log",
+        label: "Audit Log",
+        icon: IconAuditLog,
+        roles: ["administrator", "management"] as AppRole[],
+      },
+    ],
+  },
+];
+
+const ALL_HREFS = NAV.flatMap((g) => g.items.map((i) => i.href));
+
+// A nav item is "active" if the current path matches it, but not if some
+// other nav item's href is a longer (more specific) match for the same
+// path — e.g. on /projects/management, only "Project Management" lights
+// up, not the sibling "Projects" link, even though both are path prefixes.
+function isActiveHref(pathname: string, href: string): boolean {
+  const matches = (h: string) => pathname === h || pathname.startsWith(h + "/");
+  if (!matches(href)) return false;
+  return !ALL_HREFS.some((other) => other !== href && other.length > href.length && matches(other));
+}
 
 export function Sidebar({ roles }: { roles: AppRole[] }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-black/5 bg-brand-950 text-brand-50 md:flex print:hidden">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
-          MG
+    <aside className="hidden w-64 shrink-0 flex-col bg-navy-700 text-navy-100 md:flex print:hidden">
+      <div className="flex items-center gap-3 px-5 py-6">
+        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-white">
+          <Image src="/logo.png" alt="MetroGreen" fill sizes="32px" className="object-contain p-1" />
         </div>
         <div>
-          <p className="text-sm font-semibold leading-tight">MetroGreen</p>
-          <p className="text-[10px] leading-tight text-brand-300">
-            Process &amp; Management
-          </p>
+          <p className="text-sm font-semibold leading-tight text-white">MetroGreen</p>
+          <p className="text-[10px] leading-tight text-navy-200">Process &amp; Management</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-2">
-        {NAV.filter(
-          (item) => !item.roles || item.roles.some((r) => roles.includes(r))
-        ).map((item) => {
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2">
+        {NAV.map((group) => {
+          const items = group.items.filter(
+            (item) => !item.roles || item.roles.some((r) => roles.includes(r))
+          );
+          if (items.length === 0) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cx(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                active
-                  ? "bg-brand-600 text-white"
-                  : "text-brand-200 hover:bg-brand-900 hover:text-white"
+            <div key={group.label ?? "_top"}>
+              {group.label && (
+                <p className="px-3 pb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-navy-300">
+                  {group.label}
+                </p>
               )}
-            >
-              <span aria-hidden>{item.icon}</span>
-              {item.label}
-            </Link>
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const active = isActiveHref(pathname, item.href);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cx(
+                        "flex items-center gap-3 rounded-md border-l-2 py-2 pl-[10px] pr-3 text-sm transition-colors",
+                        active
+                          ? "border-brand-[#03731d] bg-white/10 text-white"
+                          : "border-transparent text-navy-100 hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-[22px] w-[22px] shrink-0 text-white" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
 
-      <div className="px-4 py-4 text-[10px] text-brand-400">
-        Meycauayan, Bulacan · Philippines
+      <div className="space-y-3 px-4 py-4">
+        <p className="text-[10px] leading-tight text-navy-300">Meycauayan, Bulacan · Philippines</p>
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-navy-100 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <IconSignOut className="h-[22px] w-[22px] text-white" /> Sign out
+          </button>
+        </form>
       </div>
     </aside>
   );

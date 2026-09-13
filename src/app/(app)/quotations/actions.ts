@@ -119,9 +119,72 @@ export async function updateRevisionHeader(
   revalidatePath(`/quotations/${quotationId}`);
 }
 
+// Fields updateConfiguration knows how to save. The form on each tab only
+// submits a subset of these (e.g. Load & Sizing submits just critical_load_kw
+// and required_backup_hours) — only keys actually present in the FormData
+// are written, so saving one tab's form never nulls out another tab's fields.
+const CONFIGURATION_NUMBER_FIELDS = [
+  "module_quantity",
+  "dc_capacity_kwp",
+  "inverter_quantity",
+  "inverter_ac_kw_total",
+  "dc_ac_ratio",
+  "battery_quantity",
+  "battery_nameplate_kwh_total",
+  "battery_usable_kwh_total",
+  "critical_load_kw",
+  "required_backup_hours",
+  "peak_sun_hours_used",
+  "performance_ratio_used",
+  "analysis_years",
+] as const;
+
+const CONFIGURATION_TEXT_FIELDS = [
+  "module_equipment_id",
+  "inverter_equipment_id",
+  "battery_equipment_id",
+  "mounting_type",
+  "mounting_notes",
+  "monitoring_system",
+  "protection_notes",
+  "bos_notes",
+  "accessories_notes",
+] as const;
+
 export async function updateConfiguration(
   quotationId: string,
   revisionId: string,
+  formData: FormData
+) {
+  const { supabase } = await requireUser();
+
+  const payload: Record<string, number | string | null> = {};
+
+  for (const key of CONFIGURATION_NUMBER_FIELDS) {
+    if (!formData.has(key)) continue;
+    const v = formData.get(key);
+    payload[key] = v === null || v === "" ? null : Number(v);
+  }
+  for (const key of CONFIGURATION_TEXT_FIELDS) {
+    if (!formData.has(key)) continue;
+    payload[key] = String(formData.get(key) ?? "").trim() || null;
+  }
+
+  if (Object.keys(payload).length === 0) return;
+
+  const { error } = await supabase
+    .from("revision_configurations")
+    .update(payload)
+    .eq("revision_id", revisionId);
+
+  if (error) throw new Error(`Could not save configuration: ${error.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+export async function updateSiteSizing(
+  quotationId: string,
+  siteId: string,
   formData: FormData
 ) {
   const { supabase } = await requireUser();
@@ -130,42 +193,72 @@ export async function updateConfiguration(
     const v = formData.get(key);
     return v === null || v === "" ? null : Number(v);
   };
-  const str = (key: string) => {
-    const v = String(formData.get(key) ?? "").trim();
-    return v || null;
-  };
 
   const payload = {
-    module_equipment_id: str("module_equipment_id"),
-    module_quantity: num("module_quantity"),
-    dc_capacity_kwp: num("dc_capacity_kwp"),
-    inverter_equipment_id: str("inverter_equipment_id"),
-    inverter_quantity: num("inverter_quantity"),
-    inverter_ac_kw_total: num("inverter_ac_kw_total"),
-    dc_ac_ratio: num("dc_ac_ratio"),
-    battery_equipment_id: str("battery_equipment_id"),
-    battery_quantity: num("battery_quantity"),
-    battery_nameplate_kwh_total: num("battery_nameplate_kwh_total"),
-    battery_usable_kwh_total: num("battery_usable_kwh_total"),
-    critical_load_kw: num("critical_load_kw"),
-    required_backup_hours: num("required_backup_hours"),
-    mounting_type: str("mounting_type"),
-    mounting_notes: str("mounting_notes"),
-    monitoring_system: str("monitoring_system"),
-    protection_notes: str("protection_notes"),
-    bos_notes: str("bos_notes"),
-    accessories_notes: str("accessories_notes"),
-    peak_sun_hours_used: num("peak_sun_hours_used"),
-    performance_ratio_used: num("performance_ratio_used"),
-    analysis_years: num("analysis_years"),
+    blended_retail_rate_php_kwh: num("blended_retail_rate_php_kwh"),
+    net_metering_eligible: formData.get("net_metering_eligible") === "on",
+    net_metering_export_rate_php_kwh: num("net_metering_export_rate_php_kwh"),
+    peak_sun_hours_per_day: num("peak_sun_hours_per_day"),
   };
 
-  const { error } = await supabase
-    .from("revision_configurations")
-    .update(payload)
-    .eq("revision_id", revisionId);
+  const { error } = await supabase.from("sites").update(payload).eq("id", siteId);
+  if (error) throw new Error(`Could not save site sizing details: ${error.message}`);
 
-  if (error) throw new Error(`Could not save configuration: ${error.message}`);
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+export async function addSiteConsumption(quotationId: string, siteId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const year = Number(formData.get("period_year"));
+  const month = Number(formData.get("period_month"));
+  const kwh = Number(formData.get("kwh"));
+  if (!year || !month || !kwh) {
+    throw new Error("Year, month, and kWh are required.");
+  }
+
+  const billRaw = formData.get("bill_amount_php");
+  const peakRaw = formData.get("peak_demand_kw");
+
+  const { error } = await supabase.from("site_consumption").upsert(
+    {
+      site_id: siteId,
+      period_year: year,
+      period_month: month,
+      kwh,
+      bill_amount_php: billRaw ? Number(billRaw) : null,
+      peak_demand_kw: peakRaw ? Number(peakRaw) : null,
+      notes: String(formData.get("notes") ?? "").trim() || null,
+    },
+    { onConflict: "site_id,period_year,period_month" }
+  );
+
+  if (error) throw new Error(`Could not save consumption record: ${error.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+export async function deleteSiteConsumption(quotationId: string, consumptionId: string) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("site_consumption").delete().eq("id", consumptionId);
+  if (error) throw new Error(`Could not delete consumption record: ${error.message}`);
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+export async function updateBomLineProposalGroup(
+  quotationId: string,
+  bomLineId: string,
+  formData: FormData
+) {
+  const { supabase } = await requireUser();
+  const value = String(formData.get("proposal_group") ?? "").trim() || null;
+
+  const { error } = await supabase
+    .from("revision_bom_lines")
+    .update({ proposal_group: value })
+    .eq("id", bomLineId);
+
+  if (error) throw new Error(`Could not update proposal grouping: ${error.message}`);
 
   revalidatePath(`/quotations/${quotationId}`);
 }
@@ -373,6 +466,7 @@ export async function addBomLine(quotationId: string, revisionId: string, formDa
       selling_line_total_php: Math.round(quantity * sellingUnitPrice * 100) / 100,
       show_on_document: formData.get("show_on_document") !== "off",
       notes: String(formData.get("notes") ?? "").trim() || null,
+      proposal_group: String(formData.get("proposal_group") ?? "").trim() || null,
     })
     .select("id")
     .single();

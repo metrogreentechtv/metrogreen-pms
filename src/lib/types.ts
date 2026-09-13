@@ -233,6 +233,9 @@ export interface Equipment {
   battery_chemistry: string | null;
   battery_cycles: number | null;
   specs: Record<string, unknown>;
+  quantity_on_hand: number | null;
+  reorder_point: number | null;
+  stock_updated_at: string | null;
   is_active: boolean;
   deleted_at: string | null;
   created_by: string | null;
@@ -290,6 +293,9 @@ export interface EquipmentCurrentPriceView {
   price_is_estimate: boolean | null;
   price_age_days: number | null;
   price_is_stale: boolean | null;
+  quantity_on_hand: number | null;
+  reorder_point: number | null;
+  stock_updated_at: string | null;
 }
 
 export interface Quotation {
@@ -411,8 +417,24 @@ export interface RevisionBomLine {
   selling_line_total_php: number;
   show_on_document: boolean;
   notes: string | null;
+  proposal_group: ProposalGroup | null;
   created_at: string;
 }
+
+export type ProposalGroup =
+  | "solar_panel"
+  | "inverter"
+  | "battery"
+  | "mounting"
+  | "dc_wire"
+  | "ac_wire"
+  | "protection"
+  | "engineering_labor"
+  | "net_metering"
+  | "mobilization"
+  | "roof_premium"
+  | "additional_works"
+  | "other";
 
 export interface RevisionBomLineCost {
   bom_line_id: string;
@@ -649,6 +671,7 @@ export interface VRevisionBomRow {
   price_is_estimate: boolean | null;
   price_effective_from: string | null;
   price_is_stale: boolean | null;
+  proposal_group: ProposalGroup | null;
 }
 
 export interface VRevisionFull

@@ -1,4 +1,3 @@
-import { signOut } from "@/app/login/actions";
 import { roleLabel } from "@/lib/roles";
 import type { AppRole } from "@/lib/types";
 
@@ -25,14 +24,6 @@ export function Topbar({
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
           {name.slice(0, 2).toUpperCase()}
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
-          >
-            Sign out
-          </button>
-        </form>
       </div>
     </header>
   );

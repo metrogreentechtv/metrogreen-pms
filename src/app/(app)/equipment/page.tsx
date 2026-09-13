@@ -72,6 +72,7 @@ export default async function EquipmentPage({
                   <th className="px-5 py-2.5 font-medium">Description</th>
                   <th className="px-5 py-2.5 font-medium">Manufacturer / Model</th>
                   <th className="px-5 py-2.5 font-medium">Unit</th>
+                  <th className="px-5 py-2.5 font-medium">In stock</th>
                   {showCost && <th className="px-5 py-2.5 font-medium">Cost</th>}
                   {showCost && <th className="px-5 py-2.5 font-medium">Markup</th>}
                   <th className="px-5 py-2.5 font-medium">Price status</th>
@@ -90,6 +91,17 @@ export default async function EquipmentPage({
                       {[r.manufacturer, r.model].filter(Boolean).join(" · ") || "—"}
                     </td>
                     <td className="px-5 py-2.5 text-neutral-600">{r.unit}</td>
+                    <td className="px-5 py-2.5 tabular-nums">
+                      {r.quantity_on_hand === null ? (
+                        <span className="text-neutral-400">Not tracked</span>
+                      ) : r.reorder_point !== null && r.quantity_on_hand <= r.reorder_point ? (
+                        <Badge tone="amber">{formatNumber(r.quantity_on_hand)} low</Badge>
+                      ) : r.quantity_on_hand === 0 ? (
+                        <Badge tone="red">0</Badge>
+                      ) : (
+                        <span className="text-neutral-800">{formatNumber(r.quantity_on_hand)}</span>
+                      )}
+                    </td>
                     {showCost && (
                       <td className="px-5 py-2.5 tabular-nums text-neutral-800">
                         {formatPhp(r.cost_price_php)}

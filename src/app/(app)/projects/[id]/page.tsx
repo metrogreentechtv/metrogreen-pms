@@ -2,11 +2,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
-import { canSeeCost, canWrite } from "@/lib/roles";
+import { canSeeProjectFinancials, canWrite } from "@/lib/roles";
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
 import { ProjectStatusBadge } from "@/components/quotations/StatusBadge";
-import { formatDate, formatNumber, formatPhp, humanize } from "@/lib/format";
-import type { Customer, Project, ProjectAssignment, ProjectBaselineBom, ProjectMilestone, ProjectStatus, Site } from "@/lib/types";
+import { formatDate, formatNumber, formatPct, formatPhp, humanize } from "@/lib/format";
+import type {
+  Contact,
+  Customer,
+  Project,
+  ProjectAssignment,
+  ProjectBaselineBom,
+  ProjectMilestone,
+  ProjectStatus,
+  RevisionConfiguration,
+  Site,
+} from "@/lib/types";
 import { addAssignment, addMilestone, updateMilestone, updateProjectStatus } from "../actions";
 
 const STATUSES: ProjectStatus[] = [
@@ -34,12 +44,16 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   if (!project) notFound();
   const p = project as Project & { customers: Customer | null; sites: Site | null };
 
-  const [{ data: baseline }, { data: milestones }, { data: assignments }, { data: assignableUsers }] =
+  const [{ data: baseline }, { data: milestones }, { data: assignments }, { data: assignableUsers }, { data: contacts }, { data: configRow }] =
     await Promise.all([
       supabase.from("project_baseline_bom").select("*").eq("project_id", p.id).order("line_no"),
       supabase.from("project_milestones").select("*").eq("project_id", p.id).order("sequence_no"),
       supabase.from("project_assignments").select("*, user_profiles(full_name)").eq("project_id", p.id),
       supabase.from("user_profiles").select("id, full_name").eq("is_active", true).order("full_name"),
+      supabase.from("contacts").select("*").eq("customer_id", p.customer_id).order("is_primary", { ascending: false }),
+      p.source_revision_id
+        ? supabase.from("revision_configurations").select("*").eq("revision_id", p.source_revision_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
   const baselineBom = (baseline ?? []) as ProjectBaselineBom[];
@@ -47,8 +61,10 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   const assignmentList = (assignments ?? []) as (ProjectAssignment & {
     user_profiles: { full_name: string } | null;
   })[];
+  const contactList = (contacts ?? []) as Contact[];
+  const config = configRow as RevisionConfiguration | null;
 
-  const showCost = canSeeCost(roles);
+  const showFinancials = canSeeProjectFinancials(roles);
   const writable = canWrite(roles);
   const totalBudgetCost = baselineBom.reduce((a, b) => a + b.budget_line_cost_php, 0);
 
@@ -74,25 +90,132 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
             <Badge tone="neutral">{humanize(p.system_type)}</Badge>
           </div>
         </div>
-        {p.quotation_id && (
+        <div className="flex flex-wrap gap-2">
           <Link
-            href={`/quotations/${p.quotation_id}`}
+            href={`/projects/${p.id}/gantt`}
             className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
           >
-            View source quotation
+            Gantt &amp; S-Curve
           </Link>
-        )}
+          {p.quotation_id && (
+            <Link
+              href={`/quotations/${p.quotation_id}`}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              View source quotation
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Contracted capacity" value={p.contracted_capacity_kwp ? `${formatNumber(p.contracted_capacity_kwp, 1)} kWp` : "—"} />
-        <Kpi label="Contract value" value={formatPhp(p.contract_value_php)} />
-        <Kpi label="Target start" value={formatDate(p.target_start_date)} />
-        <Kpi label="Target completion" value={formatDate(p.target_completion_date)} />
+        <Kpi label="Annual savings (Yr 1)" value={formatPhp(config?.annual_savings_year1_php)} />
+        <Kpi label="Simple payback" value={config?.simple_payback_years ? `${formatNumber(config.simple_payback_years, 1)} yrs` : "—"} />
+        {showFinancials ? (
+          <Kpi label="Contract value" value={formatPhp(p.contract_value_php)} />
+        ) : (
+          <Kpi label="Target completion" value={formatDate(p.target_completion_date)} />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <Card>
+              <CardHeader title="Client information" />
+              <div className="space-y-3 px-5 py-4 text-sm">
+                <div>
+                  <p className="font-medium text-neutral-900">{p.customers?.customer_name}</p>
+                  {p.customers?.company_name && (
+                    <p className="text-xs text-neutral-500">{p.customers.company_name}</p>
+                  )}
+                </div>
+                {p.customers?.billing_address && (
+                  <p className="text-xs text-neutral-600">
+                    {[p.customers.billing_address, p.customers.city, p.customers.province]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+                {contactList.length > 0 && (
+                  <div className="space-y-2 border-t border-black/5 pt-3">
+                    {contactList.map((c) => (
+                      <div key={c.id}>
+                        <p className="text-xs font-medium text-neutral-900">
+                          {c.full_name}
+                          {c.is_primary && <Badge tone="brand" className="ml-1.5">Primary</Badge>}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {[c.role_title, c.mobile, c.email].filter(Boolean).join(" · ") || "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Site information" />
+              <div className="space-y-2 px-5 py-4 text-xs text-neutral-600">
+                {p.sites ? (
+                  <>
+                    <p className="text-sm font-medium text-neutral-900">{p.sites.site_name}</p>
+                    <p>{[p.sites.address, p.sites.city, p.sites.province].filter(Boolean).join(", ") || "—"}</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-black/5 pt-2">
+                      <span>Roof type: {p.sites.roof_type ?? "—"}</span>
+                      <span>Roof material: {p.sites.roof_material ?? "—"}</span>
+                      <span>Orientation: {p.sites.roof_orientation_deg ? `${p.sites.roof_orientation_deg}°` : "—"}</span>
+                      <span>Tilt: {p.sites.roof_tilt_deg ? `${p.sites.roof_tilt_deg}°` : "—"}</span>
+                      <span>Available area: {p.sites.available_area_sqm ? `${formatNumber(p.sites.available_area_sqm, 0)} sqm` : "—"}</span>
+                      <span>Utility: {p.sites.distribution_utility ?? "—"}</span>
+                      <span>Service entrance: {p.sites.service_entrance ? humanize(p.sites.service_entrance) : "—"}</span>
+                      <span>Main breaker: {p.sites.main_breaker_amps ? `${p.sites.main_breaker_amps} A` : "—"}</span>
+                    </div>
+                    {p.sites.shading_notes && (
+                      <p className="border-t border-black/5 pt-2">
+                        <span className="font-medium text-neutral-700">Shading notes: </span>
+                        {p.sites.shading_notes}
+                      </p>
+                    )}
+                    {p.sites.structural_notes && (
+                      <p>
+                        <span className="font-medium text-neutral-700">Structural notes: </span>
+                        {p.sites.structural_notes}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>No site on file for this project.</p>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader
+              title="Savings &amp; ROI"
+              subtitle="From the winning quotation's engineering calculation"
+            />
+            {config ? (
+              <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm sm:grid-cols-4">
+                <MiniStat label="Annual generation" value={config.annual_kwh_year1 ? `${formatNumber(config.annual_kwh_year1, 0)} kWh` : "—"} />
+                <MiniStat label="Annual savings (Yr 1)" value={formatPhp(config.annual_savings_year1_php)} />
+                <MiniStat label="Simple payback" value={config.simple_payback_years ? `${formatNumber(config.simple_payback_years, 1)} yrs` : "—"} />
+                <MiniStat label="ROI" value={formatPct(config.roi_pct)} />
+                <MiniStat label="NPV" value={formatPhp(config.npv_php)} />
+                <MiniStat label="IRR" value={formatPct(config.irr_pct)} />
+                <MiniStat label="CO₂ avoided (Yr 1)" value={config.co2_avoided_kg_year1 ? `${formatNumber(config.co2_avoided_kg_year1 / 1000, 1)} t` : "—"} />
+                <MiniStat label="Analysis horizon" value={config.analysis_years ? `${config.analysis_years} yrs` : "—"} />
+              </div>
+            ) : (
+              <div className="px-5 py-6">
+                <EmptyState title="No engineering calculation on file for this project" />
+              </div>
+            )}
+          </Card>
+
           <Card>
             <CardHeader title="Milestones" subtitle="Schedule and progress tracking" />
             <div className="divide-y divide-black/5">
@@ -160,15 +283,18 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
           </Card>
 
           <Card>
-            <CardHeader title="Baseline BOM" subtitle="Frozen from the winning quotation revision — never edited" />
+            <CardHeader
+              title="Bill of materials"
+              subtitle="Frozen from the winning quotation revision — what to prepare on site"
+            />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-neutral-50 text-xs text-neutral-500">
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Description</th>
                     <th className="px-4 py-2.5 font-medium">Qty</th>
-                    {showCost && <th className="px-4 py-2.5 font-medium">Budget unit cost</th>}
-                    {showCost && <th className="px-4 py-2.5 font-medium">Budget line cost</th>}
+                    {showFinancials && <th className="px-4 py-2.5 font-medium">Budget unit cost</th>}
+                    {showFinancials && <th className="px-4 py-2.5 font-medium">Budget line cost</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -181,12 +307,12 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                       <td className="px-4 py-2 tabular-nums">
                         {formatNumber(b.budget_quantity)} {b.unit}
                       </td>
-                      {showCost && <td className="px-4 py-2 tabular-nums">{formatPhp(b.budget_unit_cost_php)}</td>}
-                      {showCost && <td className="px-4 py-2 tabular-nums">{formatPhp(b.budget_line_cost_php)}</td>}
+                      {showFinancials && <td className="px-4 py-2 tabular-nums">{formatPhp(b.budget_unit_cost_php)}</td>}
+                      {showFinancials && <td className="px-4 py-2 tabular-nums">{formatPhp(b.budget_line_cost_php)}</td>}
                     </tr>
                   ))}
                 </tbody>
-                {showCost && (
+                {showFinancials && (
                   <tfoot>
                     <tr className="border-t border-black/10 font-semibold">
                       <td colSpan={3} className="px-4 py-2.5 text-right">
@@ -280,6 +406,15 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-black/5 bg-white px-4 py-3 shadow-sm">
       <p className="text-[11px] text-neutral-400">{label}</p>
       <p className="mt-0.5 text-lg font-semibold tabular-nums text-neutral-900">{value}</p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-neutral-400">{label}</p>
+      <p className="mt-0.5 font-semibold tabular-nums text-neutral-900">{value}</p>
     </div>
   );
 }

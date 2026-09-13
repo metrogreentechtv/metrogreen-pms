@@ -3,6 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/current-user";
+import { canWrite } from "@/lib/roles";
+import { parseCsvToRecords } from "@/lib/csv";
+import { parseCustomerRecord, type ParseIssue } from "@/lib/customer-import";
 import type { CustomerType, LeadSource, ServiceEntrance } from "@/lib/types";
 
 export async function createCustomer(formData: FormData) {
@@ -109,4 +113,102 @@ export async function createContact(customerId: string, formData: FormData) {
   }
 
   revalidatePath(`/customers/${customerId}`);
+}
+
+export async function importCustomersCsv(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't import customers.");
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/customers/import?error=" + encodeURIComponent("Choose a CSV file first."));
+  }
+
+  const text = await (file as File).text();
+  const records = parseCsvToRecords(text);
+
+  if (records.length === 0) {
+    redirect(
+      "/customers/import?error=" +
+        encodeURIComponent("That file has no data rows (or the header row couldn't be read).")
+    );
+  }
+
+  let created = 0;
+  const issues: ParseIssue[] = [];
+
+  // Sequential on purpose: next_number() row-locks a shared counter, so
+  // parallel inserts would just contend on the same lock anyway, and this
+  // keeps per-row error handling simple for what's normally a few dozen to
+  // a few hundred rows.
+  for (let i = 0; i < records.length; i++) {
+    const rowNumber = i + 2; // header is row 1
+    const { row, issue } = parseCustomerRecord(records[i], rowNumber);
+    if (issue) {
+      issues.push(issue);
+      continue;
+    }
+    if (!row) continue;
+
+    const { data: customerNo, error: numError } = await supabase.rpc("next_number", {
+      p_code: "customer",
+    });
+    if (numError) {
+      issues.push({ row: rowNumber, reason: `Could not allocate a customer number: ${numError.message}` });
+      continue;
+    }
+
+    const { data: customer, error: insertError } = await supabase
+      .from("customers")
+      .insert({
+        customer_no: customerNo as string,
+        customer_name: row.customerName,
+        company_name: row.companyName,
+        customer_type: row.customerType,
+        industry: row.industry,
+        billing_address: row.billingAddress,
+        city: row.city,
+        province: row.province,
+        notes: row.notes,
+        lead_source: row.leadSource as LeadSource,
+        lead_source_detail: row.leadSourceDetail,
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !customer) {
+      issues.push({ row: rowNumber, reason: `Could not create customer: ${insertError?.message ?? "unknown error"}` });
+      continue;
+    }
+
+    created++;
+
+    if (row.mobile || row.email) {
+      const { error: contactError } = await supabase.from("contacts").insert({
+        customer_id: customer.id,
+        full_name: row.contactFullName || row.customerName,
+        mobile: row.mobile,
+        email: row.email,
+        is_primary: true,
+      });
+      if (contactError) {
+        issues.push({ row: rowNumber, reason: `Customer created, but contact info couldn't be saved: ${contactError.message}` });
+      }
+    }
+  }
+
+  revalidatePath("/customers");
+
+  const params = new URLSearchParams();
+  params.set("created", String(created));
+  params.set("skipped", String(issues.length));
+  if (issues.length > 0) {
+    params.set("issues", JSON.stringify(issues.slice(0, 25)));
+  }
+  redirect(`/customers/import?${params.toString()}`);
 }

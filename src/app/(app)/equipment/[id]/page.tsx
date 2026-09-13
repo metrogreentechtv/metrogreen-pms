@@ -50,6 +50,10 @@ export default async function EquipmentDetailPage({
         <CardHeader title="Specifications" />
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-4 text-sm sm:grid-cols-3">
           <Spec label="Unit" value={eq.unit} />
+          <Spec
+            label="In stock"
+            value={eq.quantity_on_hand === null ? "Not tracked" : `${eq.quantity_on_hand} ${eq.unit}`}
+          />
           {eq.watt_peak && <Spec label="Watt peak" value={`${eq.watt_peak} Wp`} />}
           {eq.inverter_ac_kw && <Spec label="Inverter AC" value={`${eq.inverter_ac_kw} kW`} />}
           {eq.inverter_efficiency && <Spec label="Inverter efficiency" value={formatPct(eq.inverter_efficiency)} />}

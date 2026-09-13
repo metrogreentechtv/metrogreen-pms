@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/current-user";
+import { canWrite } from "@/lib/roles";
 import { Card, EmptyState, Input, LinkButton } from "@/components/ui";
 import { Badge } from "@/components/ui";
 import { humanize } from "@/lib/format";
@@ -11,6 +13,8 @@ export default async function CustomersPage({
   searchParams: { q?: string };
 }) {
   const supabase = await createClient();
+  const user = await getCurrentUser();
+  const writable = user ? canWrite(user.roles) : false;
   const q = searchParams?.q?.trim();
 
   let query = supabase
@@ -38,7 +42,21 @@ export default async function CustomersPage({
             Every customer, site, and contact MetroGreen has quoted or served.
           </p>
         </div>
-        <LinkButton href="/customers/new">+ New customer</LinkButton>
+        <div className="flex flex-wrap items-center gap-2">
+          <LinkButton
+            href={`/customers/export${q ? `?q=${encodeURIComponent(q)}` : ""}`}
+            variant="secondary"
+            size="sm"
+          >
+            Export CSV
+          </LinkButton>
+          {writable && (
+            <LinkButton href="/customers/import" variant="secondary" size="sm">
+              Import CSV
+            </LinkButton>
+          )}
+          <LinkButton href="/customers/new">+ New customer</LinkButton>
+        </div>
       </div>
 
       <form className="max-w-sm">

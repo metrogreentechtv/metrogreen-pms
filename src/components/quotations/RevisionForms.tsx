@@ -1,5 +1,5 @@
 import { Button, Card, CardHeader, Field, Input, Select, Textarea } from "@/components/ui";
-import { formatNumber, formatPhp, formatPct } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import type {
   Equipment,
   EquipmentCurrentPriceView,
@@ -102,17 +102,6 @@ export function ConfigurationForm({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Critical load (kW)" hint="Hybrid / off-grid / BESS">
-              <Input name="critical_load_kw" type="number" step="0.01" defaultValue={cfg.critical_load_kw ?? ""} />
-            </Field>
-            <Field label="Required backup (hours)">
-              <Input
-                name="required_backup_hours"
-                type="number"
-                step="0.1"
-                defaultValue={cfg.required_backup_hours ?? ""}
-              />
-            </Field>
             <Field label="Mounting type">
               <Input name="mounting_type" defaultValue={cfg.mounting_type ?? ""} />
             </Field>
@@ -167,18 +156,13 @@ export function ConfigurationForm({
 
       <div className="border-t border-black/5 px-5 py-4">
         <p className="mb-2 text-xs text-neutral-500">
-          Energy, savings, payback, NPV/IRR/LCOE — recomputed from the configuration and current BOM
-          cost total.
+          Technical output from the configuration above. Full financial results (savings, payback,
+          NPV/IRR/LCOE) are on the ROI tab.
         </p>
-        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
           <Stat label="Annual generation" value={cfg.annual_kwh_year1 ? `${formatNumber(cfg.annual_kwh_year1, 0)} kWh` : "—"} />
-          <Stat label="Year-1 savings" value={formatPhp(cfg.annual_savings_year1_php)} />
-          <Stat label="Simple payback" value={cfg.simple_payback_years ? `${formatNumber(cfg.simple_payback_years, 1)} yrs` : "—"} />
-          <Stat label="LCOE" value={cfg.lcoe_php_per_kwh ? `${formatNumber(cfg.lcoe_php_per_kwh, 3)} ₱/kWh` : "—"} />
-          <Stat label="NPV" value={formatPhp(cfg.npv_php)} />
-          <Stat label="IRR" value={cfg.irr_pct != null ? formatPct(cfg.irr_pct) : "—"} />
-          <Stat label="CO₂ avoided / yr" value={cfg.co2_avoided_kg_year1 ? `${formatNumber(cfg.co2_avoided_kg_year1, 0)} kg` : "—"} />
           <Stat label="Required roof area" value={cfg.required_area_sqm ? `${formatNumber(cfg.required_area_sqm, 0)} m²` : "—"} />
+          <Stat label="DC:AC ratio" value={cfg.dc_ac_ratio ? formatNumber(cfg.dc_ac_ratio, 2) : "—"} />
         </div>
         {editable && (
           <form action={recalcAction} className="mt-3">
@@ -192,7 +176,7 @@ export function ConfigurationForm({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+export function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-[11px] text-neutral-400">{label}</p>

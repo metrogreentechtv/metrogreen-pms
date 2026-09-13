@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatNumber, formatPhp } from "@/lib/format";
 import { PrintButton } from "@/components/quotations/PrintButton";
+import { buildProposalLines } from "@/lib/proposal-bom";
 import type {
   Customer,
   Quotation,
@@ -13,7 +14,7 @@ import type {
   VRevisionBomRow,
 } from "@/lib/types";
 
-export default async function QuotationDocumentPage({
+export default async function QuotationProposalPage({
   params,
   searchParams,
 }: {
@@ -27,7 +28,6 @@ export default async function QuotationDocumentPage({
     .select("*, customers(*), sites(*)")
     .eq("id", params.id)
     .maybeSingle();
-
   if (!quotation) notFound();
   const q = quotation as Quotation & { customers: Customer | null; sites: Site | null };
 
@@ -36,38 +36,28 @@ export default async function QuotationDocumentPage({
     .select("*")
     .eq("quotation_id", params.id)
     .order("rev_no", { ascending: false });
-
   const allRevisions = (revisions ?? []) as QuotationRevision[];
   const revision = searchParams?.rev
     ? allRevisions.find((r) => String(r.rev_no) === searchParams.rev)
     : allRevisions.find((r) => r.is_current) ?? allRevisions[0];
-
   if (!revision) notFound();
 
-  const [{ data: cfg }, { data: pricing }, { data: bomRows }, { data: settingsRows }, { data: preparedBy }, { data: approvedBy }] =
-    await Promise.all([
-      supabase.from("revision_configurations").select("*").eq("revision_id", revision.id).single(),
-      supabase.from("revision_pricing").select("*").eq("revision_id", revision.id).single(),
-      supabase
-        .from("v_revision_bom")
-        .select("*")
-        .eq("revision_id", revision.id)
-        .eq("show_on_document", true)
-        .order("line_no"),
-      supabase.from("settings").select("key, value").eq("category", "company"),
-      revision.prepared_by
-        ? supabase.from("user_profiles").select("full_name").eq("id", revision.prepared_by).maybeSingle()
-        : Promise.resolve({ data: null }),
-      revision.approved_by
-        ? supabase.from("user_profiles").select("full_name").eq("id", revision.approved_by).maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
+  const [{ data: cfg }, { data: pricing }, { data: bomRows }, { data: settingsRows }] = await Promise.all([
+    supabase.from("revision_configurations").select("*").eq("revision_id", revision.id).single(),
+    supabase.from("revision_pricing").select("*").eq("revision_id", revision.id).single(),
+    supabase.from("v_revision_bom").select("*").eq("revision_id", revision.id).order("line_no"),
+    supabase.from("settings").select("key, value").eq("category", "company"),
+  ]);
 
   const configuration = cfg as RevisionConfiguration;
   const pricingRow = pricing as RevisionPricing;
   const bom = (bomRows ?? []) as VRevisionBomRow[];
+  const lines = buildProposalLines(bom);
+  const lineTotal = lines.reduce((a, l) => a + l.selling_line_total_php, 0);
+
   const company = new Map<string, unknown>((settingsRows ?? []).map((r) => [r.key, r.value]));
   const s = (key: string) => (company.get(key) as string) || "";
+  const hasBankDetails = !!(s("company.bank_name") || s("company.bank_account_name") || s("company.bank_account_number"));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 bg-white p-8 text-sm text-neutral-800 shadow-sm print:shadow-none">
@@ -82,24 +72,17 @@ export default async function QuotationDocumentPage({
             </h1>
             <p className="text-xs text-neutral-500">{s("company.address")}</p>
             <p className="text-xs text-neutral-500">
-              {[
-                s("company.mobile") && `Tel: ${s("company.mobile")}`,
-                s("company.email"),
-                s("company.website"),
-              ]
+              {[s("company.mobile") && `Tel: ${s("company.mobile")}`, s("company.email"), s("company.website")]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-neutral-400">Quotation</p>
+          <p className="text-xs uppercase tracking-wide text-neutral-400">Proposal</p>
           <p className="text-base font-semibold">{q.quotation_no}</p>
           <p className="text-xs text-neutral-500">
             Rev {String(revision.rev_no).padStart(2, "0")} · {formatDate(revision.quotation_date)}
-          </p>
-          <p className="text-xs text-neutral-500">
-            Valid until {formatDate(revision.valid_until) || `${revision.validity_days} days`}
           </p>
         </div>
       </div>
@@ -110,9 +93,6 @@ export default async function QuotationDocumentPage({
           <p className="font-medium">{q.customers?.customer_name}</p>
           {q.customers?.company_name && <p>{q.customers.company_name}</p>}
           <p className="text-neutral-600">{q.customers?.billing_address}</p>
-          <p className="text-neutral-600">
-            {[q.customers?.city, q.customers?.province].filter(Boolean).join(", ")}
-          </p>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase text-neutral-400">Project</p>
@@ -149,52 +129,43 @@ export default async function QuotationDocumentPage({
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase text-neutral-400">Equipment &amp; scope</p>
+        <p className="mb-2 text-xs font-semibold uppercase text-neutral-400">Bill of materials</p>
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="border-b border-neutral-300 text-left text-neutral-500">
-              <th className="py-1.5 pr-2">#</th>
+              <th className="py-1.5 pr-2">Item</th>
               <th className="py-1.5 pr-2">Description</th>
               <th className="py-1.5 pr-2">Qty</th>
-              <th className="py-1.5 pr-2 text-right">Unit price</th>
-              <th className="py-1.5 text-right">Total</th>
+              <th className="py-1.5 text-right">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {bom.map((r) => (
-              <tr key={r.bom_line_id} className="border-b border-neutral-100">
-                <td className="py-1.5 pr-2 text-neutral-400">{r.line_no}</td>
+            {lines.map((l, i) => (
+              <tr key={i} className="border-b border-neutral-100">
+                <td className="py-1.5 pr-2 text-neutral-500">{l.groupLabel}</td>
                 <td className="py-1.5 pr-2">
-                  <p className="font-medium">{r.description}</p>
-                  <p className="text-neutral-500">{[r.manufacturer, r.model].filter(Boolean).join(" · ")}</p>
+                  <p className="font-medium">{l.description}</p>
+                  {l.mode === "itemized" && (l.manufacturer || l.model) && (
+                    <p className="text-neutral-500">{[l.manufacturer, l.model].filter(Boolean).join(" · ")}</p>
+                  )}
                 </td>
                 <td className="py-1.5 pr-2">
-                  {formatNumber(r.quantity)} {r.unit}
+                  {formatNumber(l.quantity)} {l.unit}
                 </td>
-                <td className="py-1.5 pr-2 text-right">{formatPhp(r.selling_unit_price_php)}</td>
-                <td className="py-1.5 text-right font-medium">{formatPhp(r.selling_line_total_php)}</td>
+                <td className="py-1.5 text-right font-medium">{formatPhp(l.selling_line_total_php)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {lines.length === 0 && (
+          <p className="py-4 text-center text-neutral-400">No lines tagged for the Proposal.</p>
+        )}
 
         <div className="mt-3 flex justify-end">
           <div className="w-56 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-neutral-500">Selling price (net)</span>
-              <span>{formatPhp(pricingRow?.selling_price_net_php)}</span>
-            </div>
-            {pricingRow?.discount_php > 0 && (
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Discount</span>
-                <span>-{formatPhp(pricingRow.discount_php)}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-neutral-500">
-                VAT ({pricingRow?.vat_treatment?.replace(/_/g, " ")})
-              </span>
-              <span>{formatPhp(pricingRow?.vat_amount_php)}</span>
+              <span className="text-neutral-500">Proposal BOM total</span>
+              <span>{formatPhp(lineTotal)}</span>
             </div>
             <div className="flex justify-between border-t border-neutral-300 pt-1 text-base font-semibold">
               <span>Total contract price</span>
@@ -204,9 +175,7 @@ export default async function QuotationDocumentPage({
         </div>
       </div>
 
-      {revision.scope_of_work && (
-        <DocSection title="Scope of work" text={revision.scope_of_work} />
-      )}
+      {revision.scope_of_work && <DocSection title="Scope of work" text={revision.scope_of_work} />}
       {revision.inclusions && <DocSection title="Inclusions" text={revision.inclusions} />}
       {revision.exclusions && <DocSection title="Exclusions" text={revision.exclusions} />}
       {revision.payment_terms && <DocSection title="Payment terms" text={revision.payment_terms} />}
@@ -215,10 +184,26 @@ export default async function QuotationDocumentPage({
       {revision.net_metering_note && <DocSection title="Net metering" text={revision.net_metering_note} />}
       {revision.terms_conditions && <DocSection title="Terms and conditions" text={revision.terms_conditions} />}
 
+      {hasBankDetails && (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase text-neutral-400">Bank details</p>
+          <p className="text-neutral-700">
+            {[
+              s("company.bank_name"),
+              s("company.bank_account_name") && `Account name: ${s("company.bank_account_name")}`,
+              s("company.bank_account_number") && `Account #: ${s("company.bank_account_number")}`,
+              s("company.bank_branch") && `Branch: ${s("company.bank_branch")}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-6 border-t border-neutral-200 pt-8 text-center text-xs">
-        <Signatory label="Prepared by" name={preparedBy?.full_name} />
+        <Signatory label="Prepared by" />
         <Signatory label="Reviewed by" />
-        <Signatory label="Approved by" name={approvedBy?.full_name} />
+        <Signatory label="Approved by" />
       </div>
 
       <div className="print:hidden">
@@ -237,13 +222,12 @@ function DocSection({ title, text }: { title: string; text: string }) {
   );
 }
 
-function Signatory({ label, name }: { label: string; name?: string | null }) {
+function Signatory({ label }: { label: string }) {
   return (
     <div>
       <div className="mb-8 h-8" />
-      <p className="border-t border-neutral-400 pt-1 font-medium">{name || " "}</p>
+      <p className="border-t border-neutral-400 pt-1 font-medium">&nbsp;</p>
       <p className="text-neutral-500">{label}</p>
     </div>
   );
 }
-

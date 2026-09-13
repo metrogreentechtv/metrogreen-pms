@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { formatPhp, formatPct } from "@/lib/format";
+import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { EquipmentCategory, EquipmentCurrentPriceView, Supplier } from "@/lib/types";
 
 export function BomLineForm({
@@ -172,6 +173,20 @@ export function BomLineForm({
 
       <Field label="Notes">
         <Textarea name="notes" rows={2} />
+      </Field>
+
+      <Field
+        label="Proposal grouping"
+        hint="How this line rolls up on the Proposal tab — leave blank to keep it off the Proposal (it still shows on the BOQ)"
+      >
+        <Select name="proposal_group" defaultValue="">
+          <option value="">Not on Proposal</option>
+          {PROPOSAL_GROUPS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label} {g.mode === "lot" ? "(shown as 1 lot)" : ""}
+            </option>
+          ))}
+        </Select>
       </Field>
 
       <label className="flex items-center gap-2 text-sm text-neutral-700">

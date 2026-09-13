@@ -25,6 +25,21 @@ export function canSeeCost(roles: AppRole[]): boolean {
   );
 }
 
+// Projects module only: administrator, management, procurement can see
+// budget cost and contract value on an awarded project. Deliberately
+// narrower than canSeeCost() (which also includes engineer, for the
+// quoting stage) — a project engineer executing the job needs the BOM
+// quantities, client/site info, and savings/ROI figures, not pricing.
+// This is a UI-level narrowing on top of the DB's real RLS boundary
+// (which still permits "engineer" to see cost, matching can_see_cost());
+// it hides these figures in this view rather than adding a new
+// database-level restriction.
+export function canSeeProjectFinancials(roles: AppRole[]): boolean {
+  return roles.some((r) =>
+    (["administrator", "management", "procurement"] as AppRole[]).includes(r)
+  );
+}
+
 // app.can_see_profit(): administrator/management always; engineer only if
 // settings["permissions.engineer_sees_profit"] is true; OR any user whose
 // user_profiles.can_see_profit_override is true.

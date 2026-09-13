@@ -23,4 +23,8 @@ body {
   body {
     background: #fff;
   }
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
 }

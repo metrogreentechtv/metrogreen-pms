@@ -1,19 +1,26 @@
+"use client";
+
 import { formatNumber, formatPhp } from "@/lib/format";
+import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { VRevisionBomRow } from "@/lib/types";
 
 export function BomTable({
   rows,
   showCost,
   deleteAction,
+  updateGroupAction,
 }: {
   rows: VRevisionBomRow[];
   showCost: boolean;
   /** Bound server action: (bomLineId: string) => void. Omit to render read-only. */
   deleteAction?: (bomLineId: string) => Promise<void>;
+  /** Bound server action: (bomLineId: string, formData) => void. Omit to hide the Proposal-grouping column. */
+  updateGroupAction?: (bomLineId: string, formData: FormData) => Promise<void>;
 }) {
   const totalSelling = rows.reduce((a, r) => a + r.selling_line_total_php, 0);
   const totalCost = rows.reduce((a, r) => a + (r.line_cost_php ?? 0), 0);
   const canDelete = !!deleteAction;
+  const showGroup = !!updateGroupAction;
 
   return (
     <div className="overflow-x-auto">
@@ -27,6 +34,7 @@ export function BomTable({
             {showCost && <th className="px-4 py-2.5 font-medium">Unit cost</th>}
             <th className="px-4 py-2.5 font-medium">Selling price</th>
             <th className="px-4 py-2.5 font-medium">Line total</th>
+            {showGroup && <th className="px-4 py-2.5 font-medium">Proposal group</th>}
             {canDelete && <th className="px-4 py-2.5" />}
           </tr>
         </thead>
@@ -60,6 +68,25 @@ export function BomTable({
               <td className="px-4 py-2 tabular-nums font-medium text-neutral-900">
                 {formatPhp(r.selling_line_total_php)}
               </td>
+              {showGroup && (
+                <td className="px-4 py-2">
+                  <form action={updateGroupAction!.bind(null, r.bom_line_id)}>
+                    <select
+                      name="proposal_group"
+                      defaultValue={r.proposal_group ?? ""}
+                      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                      className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs text-neutral-700"
+                    >
+                      <option value="">Not on Proposal</option>
+                      {PROPOSAL_GROUPS.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label}
+                        </option>
+                      ))}
+                    </select>
+                  </form>
+                </td>
+              )}
               {canDelete && (
                 <td className="px-4 py-2 text-right">
                   <form action={deleteAction!.bind(null, r.bom_line_id)}>
@@ -81,6 +108,7 @@ export function BomTable({
             {showCost && <td className="px-4 py-2.5 tabular-nums">{formatPhp(totalCost)}</td>}
             <td />
             <td className="px-4 py-2.5 tabular-nums">{formatPhp(totalSelling)}</td>
+            {showGroup && <td />}
             {canDelete && <td />}
           </tr>
         </tfoot>

@@ -10,6 +10,10 @@ import { StatusActions } from "@/components/quotations/StatusActions";
 import { PricingSummary } from "@/components/quotations/PricingSummary";
 import { BomTable } from "@/components/quotations/BomTable";
 import { BomLineForm } from "@/components/quotations/BomLineForm";
+import { QuotationTabs } from "@/components/quotations/QuotationTabs";
+import { LoadSizingPanel } from "@/components/quotations/LoadSizingPanel";
+import { RoiPanel } from "@/components/quotations/RoiPanel";
+import { ProposalPanel } from "@/components/quotations/ProposalPanel";
 import {
   ConfigurationForm,
   CostingForm,
@@ -29,21 +33,28 @@ import type {
   RevisionMargin,
   RevisionPricing,
   RevisionStatusHistory,
+  Site,
+  SiteConsumption,
   Supplier,
   VRevisionBomRow,
+  VSiteConsumptionSummary,
 } from "@/lib/types";
 import {
   addBomLine,
+  addSiteConsumption,
   changeStatus,
   createProjectFromRevision,
   createRevision,
   deleteBomLine,
+  deleteSiteConsumption,
   overrideMargin,
   recalculateEngineering,
+  updateBomLineProposalGroup,
   updateConfiguration,
   updateCosting,
   updatePricing,
   updateRevisionHeader,
+  updateSiteSizing,
 } from "../actions";
 
 export default async function QuotationDetailPage({
@@ -91,6 +102,8 @@ export default async function QuotationDetailPage({
     { data: projectRow },
     { data: salesName },
     { data: engineerName },
+    { data: site },
+    { data: bankRows },
   ] = await Promise.all([
     supabase.from("revision_configurations").select("*").eq("revision_id", selectedRevision.id).single(),
     supabase.from("revision_costing").select("*").eq("revision_id", selectedRevision.id).single(),
@@ -116,6 +129,18 @@ export default async function QuotationDetailPage({
     q.assigned_engineer_id
       ? supabase.from("user_profiles").select("full_name").eq("id", q.assigned_engineer_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    q.site_id
+      ? supabase.from("sites").select("*").eq("id", q.site_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("settings")
+      .select("key, value")
+      .in("key", [
+        "company.bank_name",
+        "company.bank_account_name",
+        "company.bank_account_number",
+        "company.bank_branch",
+      ]),
   ]);
 
   const configuration = cfg as RevisionConfiguration;
@@ -127,6 +152,25 @@ export default async function QuotationDetailPage({
   const equipmentList = (equipment ?? []) as EquipmentCurrentPriceView[];
   const categoryList = (categories ?? []) as EquipmentCategory[];
   const supplierList = (suppliers ?? []) as Supplier[];
+  const siteRow = (site ?? null) as Site | null;
+
+  const bankMap = new Map<string, unknown>((bankRows ?? []).map((r) => [r.key, r.value]));
+  const bankValue = (key: string) => (bankMap.get(key) as string) || "";
+
+  const [{ data: consumptionRows }, { data: summaryRow }] = siteRow
+    ? await Promise.all([
+        supabase
+          .from("site_consumption")
+          .select("*")
+          .eq("site_id", siteRow.id)
+          .order("period_year", { ascending: false })
+          .order("period_month", { ascending: false }),
+        supabase.from("v_site_consumption_summary").select("*").eq("site_id", siteRow.id).maybeSingle(),
+      ])
+    : [{ data: [] }, { data: null }];
+
+  const consumption = (consumptionRows ?? []) as SiteConsumption[];
+  const summary = (summaryRow ?? null) as VSiteConsumptionSummary | null;
 
   const showCost = canSeeCost(roles);
   const showProfit = canSeeProfit(roles, {
@@ -153,6 +197,10 @@ export default async function QuotationDetailPage({
   const boundUpdateHeader = updateRevisionHeader.bind(null, q.id, selectedRevision.id);
   const boundAddBomLine = addBomLine.bind(null, q.id, selectedRevision.id);
   const boundDeleteBomLine = deleteBomLine.bind(null, q.id);
+  const boundUpdateGroup = updateBomLineProposalGroup.bind(null, q.id);
+  const boundSiteSizing = siteRow ? updateSiteSizing.bind(null, q.id, siteRow.id) : async () => {};
+  const boundAddConsumption = siteRow ? addSiteConsumption.bind(null, q.id, siteRow.id) : async () => {};
+  const boundDeleteConsumption = deleteSiteConsumption.bind(null, q.id);
 
   return (
     <div className="space-y-6">
@@ -189,33 +237,69 @@ export default async function QuotationDetailPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <ConfigurationForm
-            cfg={configuration}
-            modules={modules}
-            inverters={inverters}
-            batteries={batteries}
-            editable={bomEditable}
-            action={boundUpdateConfig}
-            recalcAction={boundRecalc}
+          <QuotationTabs
+            load={
+              <LoadSizingPanel
+                site={siteRow}
+                consumption={consumption}
+                summary={summary}
+                cfg={configuration}
+                editable={bomEditable}
+                siteSizingAction={boundSiteSizing}
+                criticalLoadAction={boundUpdateConfig}
+                addConsumptionAction={boundAddConsumption}
+                deleteConsumptionAction={boundDeleteConsumption}
+              />
+            }
+            design={
+              <ConfigurationForm
+                cfg={configuration}
+                modules={modules}
+                inverters={inverters}
+                batteries={batteries}
+                editable={bomEditable}
+                action={boundUpdateConfig}
+                recalcAction={boundRecalc}
+              />
+            }
+            boq={
+              <Card>
+                <CardHeader title="Bill of materials" subtitle={`${bom.length} line(s)`} />
+                <BomTable
+                  rows={bom}
+                  showCost={showCost}
+                  deleteAction={bomEditable ? boundDeleteBomLine : undefined}
+                  updateGroupAction={bomEditable ? boundUpdateGroup : undefined}
+                />
+                {bomEditable && (
+                  <details className="border-t border-black/5 px-5 py-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">+ Add BOM line</summary>
+                    <div className="mt-4">
+                      <BomLineForm
+                        categories={categoryList}
+                        equipment={equipmentList}
+                        suppliers={supplierList}
+                        action={boundAddBomLine}
+                      />
+                    </div>
+                  </details>
+                )}
+              </Card>
+            }
+            roi={
+              <RoiPanel cfg={configuration} quotationId={q.id} editable={bomEditable} recalcAction={boundRecalc} />
+            }
+            proposal={
+              <ProposalPanel
+                bom={bom}
+                quotationId={q.id}
+                bankName={bankValue("company.bank_name")}
+                bankAccountName={bankValue("company.bank_account_name")}
+                bankAccountNumber={bankValue("company.bank_account_number")}
+                bankBranch={bankValue("company.bank_branch")}
+              />
+            }
           />
-
-          <Card>
-            <CardHeader title="Bill of materials" subtitle={`${bom.length} line(s)`} />
-            <BomTable rows={bom} showCost={showCost} deleteAction={bomEditable ? boundDeleteBomLine : undefined} />
-            {bomEditable && (
-              <details className="border-t border-black/5 px-5 py-4">
-                <summary className="cursor-pointer text-sm font-medium text-brand-700">+ Add BOM line</summary>
-                <div className="mt-4">
-                  <BomLineForm
-                    categories={categoryList}
-                    equipment={equipmentList}
-                    suppliers={supplierList}
-                    action={boundAddBomLine}
-                  />
-                </div>
-              </details>
-            )}
-          </Card>
 
           <PricingSummary
             costing={costingRow}
