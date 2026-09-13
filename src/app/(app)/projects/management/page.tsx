@@ -45,7 +45,7 @@ export default async function ProjectManagementPage() {
         <p className="text-sm text-neutral-500">
           A portfolio view across every project — C&amp;I projects on a timeline, residential projects
           on a status board. Individual schedules, milestones, and team assignments are still managed
-          from each project's own page.
+          from each project&apos;s own page.
         </p>
       </div>
 

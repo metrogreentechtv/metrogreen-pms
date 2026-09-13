@@ -100,7 +100,7 @@ export default async function ImportCustomersPage({
           <ul className="mt-3 list-disc space-y-1 pl-4 text-xs text-neutral-500">
             <li>Column names are matched case-insensitively; a few common alternates work too.</li>
             <li>&ldquo;Customer Code&rdquo; is ignored — a customer number is always assigned automatically.</li>
-            <li>A row needs at least a Contact Person or a Company Name, or it's skipped.</li>
+            <li>A row needs at least a Contact Person or a Company Name, or it&apos;s skipped.</li>
             <li>Customer Type should be one of: residential, commercial, industrial, government, subcontractor_client — anything else defaults to residential.</li>
             <li>If Phone or Email is present, a primary contact is created for that customer.</li>
           </ul>
