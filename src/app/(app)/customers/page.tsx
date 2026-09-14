@@ -6,6 +6,8 @@ import { Card, EmptyState, Input, LinkButton } from "@/components/ui";
 import { Badge } from "@/components/ui";
 import { humanize } from "@/lib/format";
 import type { Customer } from "@/lib/types";
+import { CustomerRowActions } from "@/components/customers/CustomerRowActions";
+import { deleteCustomer } from "./actions";
 
 export default async function CustomersPage({
   searchParams,
@@ -84,6 +86,7 @@ export default async function CustomersPage({
                 <th className="px-5 py-3 font-medium">Type</th>
                 <th className="px-5 py-3 font-medium">Location</th>
                 <th className="px-5 py-3 font-medium">Lead source</th>
+                {writable && <th className="px-5 py-3 font-medium text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
@@ -112,6 +115,15 @@ export default async function CustomersPage({
                   <td className="px-5 py-3 text-neutral-600">
                     {humanize(c.lead_source)}
                   </td>
+                  {writable && (
+                    <td className="px-5 py-3">
+                      <CustomerRowActions
+                        customerId={c.id}
+                        customerName={c.customer_name}
+                        deleteAction={deleteCustomer.bind(null, c.id)}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

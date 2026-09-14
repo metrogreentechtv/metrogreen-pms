@@ -52,6 +52,60 @@ export async function createCustomer(formData: FormData) {
   redirect(`/customers/${customer.id}`);
 }
 
+export async function updateCustomer(customerId: string, formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't edit customers.");
+  }
+
+  const payload = {
+    customer_name: String(formData.get("customer_name") ?? "").trim(),
+    company_name: String(formData.get("company_name") ?? "").trim() || null,
+    customer_type: String(formData.get("customer_type")) as CustomerType,
+    industry: String(formData.get("industry") ?? "").trim() || null,
+    billing_address: String(formData.get("billing_address") ?? "").trim() || null,
+    city: String(formData.get("city") ?? "").trim() || null,
+    province: String(formData.get("province") ?? "").trim() || null,
+    lead_source: String(formData.get("lead_source")) as LeadSource,
+    lead_source_detail: String(formData.get("lead_source_detail") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  };
+
+  const { error } = await supabase.from("customers").update(payload).eq("id", customerId);
+  if (error) {
+    throw new Error(`Could not update customer: ${error.message}`);
+  }
+
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}`);
+  redirect(`/customers/${customerId}`);
+}
+
+// Soft delete: the row disappears from the customer list and can't be
+// selected for new quotations, but stays on file (is_active=false) since
+// past quotations, sites, and contacts still point at it and shouldn't
+// lose their customer reference.
+export async function deleteCustomer(customerId: string, _formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't delete customers.");
+  }
+
+  const { error } = await supabase
+    .from("customers")
+    .update({ is_active: false, deleted_at: new Date().toISOString() })
+    .eq("id", customerId);
+  if (error) {
+    throw new Error(`Could not delete customer: ${error.message}`);
+  }
+
+  revalidatePath("/customers");
+}
+
 export async function createSite(customerId: string, formData: FormData) {
   const supabase = await createClient();
   const {
