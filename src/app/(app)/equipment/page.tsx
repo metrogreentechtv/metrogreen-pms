@@ -20,7 +20,6 @@ export default async function EquipmentPage({
     .from("v_equipment_current_price")
     .select("*")
     .eq("is_active", true)
-    .order("category_name")
     .order("description");
 
   if (q) {
@@ -32,13 +31,21 @@ export default async function EquipmentPage({
     query = query.eq("category_code", searchParams.category);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, { data: categoryRows }] = await Promise.all([
+    query,
+    supabase.from("equipment_categories").select("id, name").eq("is_active", true).order("sort_order"),
+  ]);
   const items = (data ?? []) as EquipmentCurrentPriceView[];
 
+  // Grouped and ordered by the catalog's own sort_order (Solar Panels → Inverter →
+  // Rapid Shutdown → … → Grounding), not alphabetically by category name.
   const grouped = items.reduce<Record<string, EquipmentCurrentPriceView[]>>((acc, item) => {
-    (acc[item.category_name] ??= []).push(item);
+    (acc[item.category_id] ??= []).push(item);
     return acc;
   }, {});
+  const orderedGroups = (categoryRows ?? [])
+    .map((c) => ({ name: c.name as string, rows: grouped[c.id as string] ?? [] }))
+    .filter((g) => g.rows.length > 0);
 
   return (
     <div className="space-y-5">
@@ -60,7 +67,7 @@ export default async function EquipmentPage({
         </Card>
       )}
 
-      {Object.entries(grouped).map(([category, rows]) => (
+      {orderedGroups.map(({ name: category, rows }) => (
         <Card key={category}>
           <div className="border-b border-black/5 px-5 py-3">
             <h2 className="text-sm font-semibold text-neutral-900">{category}</h2>
