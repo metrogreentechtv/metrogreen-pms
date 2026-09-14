@@ -100,11 +100,11 @@ export function Sidebar({ roles }: { roles: AppRole[] }) {
     <aside className="hidden w-64 shrink-0 flex-col bg-navy-700 text-navy-100 md:flex print:hidden">
       <div className="flex items-center gap-3 px-5 py-6">
         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-white">
-          <Image src="/logo.png" alt="MetroGreen" fill sizes="32px" className="object-contain p-1" />
+          <Image src="/logo.png" alt="METROGREEN" fill sizes="40px" className="object-contain p-1" />
         </div>
         <div>
-          <p className="text-sm font-semibold leading-tight text-white">MetroGreen</p>
-          <p className="text-[10px] leading-tight text-navy-200">Process &amp; Management</p>
+          <p className="text-sm font-semibold leading-tight text-white">Metrogreen </p>
+          <p className="text-[10px] leading-tight text-white">Process Management System</p>
         </div>
       </div>
 
@@ -130,11 +130,11 @@ export function Sidebar({ roles }: { roles: AppRole[] }) {
                       key={item.href}
                       href={item.href}
                       className={cx(
-                        "flex items-center gap-3 rounded-md border-l-2 py-2 pl-[10px] pr-3 text-sm transition-colors",
-                        active
-                          ? "border-brand-[#03731d] bg-white/10 text-white"
-                          : "border-transparent text-navy-100 hover:bg-white/5 hover:text-white"
-                      )}
+  "flex items-center gap-3 rounded-md py-2 pl-3 pr-3 text-sm transition-colors",
+  active
+    ? "bg-[#159a1a] text-white"
+    : "text-navy-100 hover:bg-white/5 hover:text-white"
+)}
                     >
                       <Icon className="h-[22px] w-[22px] shrink-0 text-white" />
                       {item.label}
@@ -148,7 +148,7 @@ export function Sidebar({ roles }: { roles: AppRole[] }) {
       </nav>
 
       <div className="space-y-3 px-4 py-4">
-        <p className="text-[10px] leading-tight text-navy-300">Meycauayan, Bulacan · Philippines</p>
+        <p className="text-[10px] leading-tight text-navy-white">Meycauayan, Bulacan · Philippines</p>
         <form action={signOut}>
           <button
             type="submit"
