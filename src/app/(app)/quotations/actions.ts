@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { computeEngineering, CALC_ENGINE_VERSION, type CalcSettings } from "@/lib/calc-engine";
-import type { ServiceType, SystemType, VatTreatment } from "@/lib/types";
+import type { BomTemplateLine, ServiceType, SystemType, VatTreatment } from "@/lib/types";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -485,6 +485,116 @@ export async function addBomLine(quotationId: string, revisionId: string, formDa
   });
 
   if (costError) throw new Error(`Could not save BOM line cost: ${costError.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+// Applies a standard BOM template ("Package") to a revision: copies its
+// lines onto revision_bom_lines at current catalog prices. Each template
+// line flagged is_major (Solar Panel, Inverter, Battery, Mounting
+// Structure) needs a specific catalog item chosen for this quotation —
+// the form submits those as fields named major_<templateLineId>. Every
+// other line is fixed and copies over as-is; if it has its own
+// equipment_id it's priced from the catalog too, otherwise it lands at
+// zero and can be corrected with "+ Add BOM line" like any manual line.
+export async function applyBomTemplate(quotationId: string, revisionId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const templateId = String(formData.get("template_id") ?? "").trim();
+  if (!templateId) throw new Error("Choose a template first.");
+
+  const { data: lineRows, error: linesError } = await supabase
+    .from("bom_template_lines")
+    .select("*")
+    .eq("template_id", templateId)
+    .order("line_no");
+  if (linesError) throw new Error(`Could not load the template: ${linesError.message}`);
+
+  const templateLines = (lineRows ?? []) as BomTemplateLine[];
+  if (templateLines.length === 0) {
+    throw new Error("That template has no line items yet — add some under BOM Templates first.");
+  }
+
+  const resolvedEquipmentIds = new Map<string, string>();
+  for (const line of templateLines) {
+    if (line.is_major) {
+      const chosen = String(formData.get(`major_${line.id}`) ?? "").trim();
+      if (!chosen) {
+        throw new Error(`Choose an item for "${line.description}" before applying the template.`);
+      }
+      resolvedEquipmentIds.set(line.id, chosen);
+    } else if (line.equipment_id) {
+      resolvedEquipmentIds.set(line.id, line.equipment_id);
+    }
+  }
+
+  const catalogIds = Array.from(new Set(Array.from(resolvedEquipmentIds.values())));
+  const { data: catalogRows, error: catalogError } =
+    catalogIds.length > 0
+      ? await supabase.from("v_equipment_current_price").select("*").in("id", catalogIds)
+      : { data: [] as Record<string, unknown>[], error: null };
+  if (catalogError) throw new Error(`Could not load catalog pricing: ${catalogError.message}`);
+  const catalogMap = new Map((catalogRows ?? []).map((r) => [r.id as string, r]));
+
+  const { count } = await supabase
+    .from("revision_bom_lines")
+    .select("id", { count: "exact", head: true })
+    .eq("revision_id", revisionId);
+  let nextLineNo = (count ?? 0) + 1;
+
+  // Sequential on purpose (mirrors importCustomersCsv): a handful to a few
+  // dozen lines per template, and each insert needs the previous line_no.
+  for (const line of templateLines) {
+    const equipmentId = resolvedEquipmentIds.get(line.id) ?? null;
+    const catalog = equipmentId ? catalogMap.get(equipmentId) : undefined;
+
+    const description = (catalog?.description as string) ?? line.description;
+    const manufacturer = (catalog?.manufacturer as string | null) ?? line.manufacturer;
+    const model = (catalog?.model as string | null) ?? line.model;
+    const unit = (catalog?.unit as string) ?? line.unit;
+    const quantity = line.quantity;
+    const unitCost = (catalog?.cost_price_php as number | null) ?? 0;
+    const markupRate = (catalog?.default_markup_rate as number | null) ?? 0.2;
+    const sellingUnitPrice = Math.round(unitCost * (1 + markupRate) * 100) / 100;
+    const sellingLineTotal = Math.round(quantity * sellingUnitPrice * 100) / 100;
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("revision_bom_lines")
+      .insert({
+        revision_id: revisionId,
+        line_no: nextLineNo++,
+        category_id: line.category_id,
+        equipment_id: equipmentId,
+        description,
+        manufacturer,
+        model,
+        quantity,
+        unit,
+        selling_unit_price_php: sellingUnitPrice,
+        selling_line_total_php: sellingLineTotal,
+        show_on_document: true,
+        notes: line.notes,
+      })
+      .select("id")
+      .single();
+    if (insertError) {
+      throw new Error(`Could not add "${description}" from the template: ${insertError.message}`);
+    }
+
+    const { error: costError } = await supabase.from("revision_bom_line_costs").insert({
+      bom_line_id: inserted.id,
+      revision_id: revisionId,
+      unit_cost_php: unitCost,
+      line_cost_php: Math.round(unitCost * quantity * 100) / 100,
+      markup_rate: markupRate,
+      supplier_id: (catalog?.supplier_id as string | null) ?? null,
+      price_record_id: (catalog?.price_record_id as string | null) ?? null,
+      price_is_estimate: !catalog,
+    });
+    if (costError) {
+      throw new Error(`Could not save cost for "${description}": ${costError.message}`);
+    }
+  }
 
   revalidatePath(`/quotations/${quotationId}`);
 }

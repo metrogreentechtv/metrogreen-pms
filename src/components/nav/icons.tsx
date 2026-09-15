@@ -75,6 +75,17 @@ export function IconEquipment({ className }: IconProps) {
   );
 }
 
+export function IconBomTemplates({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <path d="M8 8h3M8 12h3M8 16h3" />
+      <rect x="14" y="7" width="3" height="3" rx="0.5" />
+      <rect x="14" y="14" width="3" height="3" rx="0.5" />
+    </svg>
+  );
+}
+
 export function IconUsers({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden>

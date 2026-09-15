@@ -298,6 +298,45 @@ export interface EquipmentCurrentPriceView {
   stock_updated_at: string | null;
 }
 
+// A standard BOM template ("Package") for one system-size tier, e.g.
+// "5kW On-Grid Standard". Applying it to a quotation copies its lines
+// into revision_bom_lines; the template itself is never linked to a
+// quotation.
+export interface BomTemplate {
+  id: string;
+  name: string;
+  system_size_kwp: number;
+  system_type: SystemType | null;
+  description: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
+
+// One line of a BomTemplate. is_major marks a "major equipment" slot
+// (Solar Panel, Inverter, Battery, Mounting Structure) that sales picks a
+// specific catalog item for at apply-time — category_id says which
+// equipment category that slot draws from, and equipment_id (if set) is
+// just the suggested default. A non-major line is a fixed/standard item
+// copied onto the BOM as-is.
+export interface BomTemplateLine {
+  id: string;
+  template_id: string;
+  line_no: number;
+  category_id: string;
+  equipment_id: string | null;
+  is_major: boolean;
+  description: string;
+  manufacturer: string | null;
+  model: string | null;
+  quantity: number;
+  unit: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Quotation {
   id: string;
   quotation_no: string;

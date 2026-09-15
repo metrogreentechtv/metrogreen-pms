@@ -10,6 +10,7 @@ import { StatusActions } from "@/components/quotations/StatusActions";
 import { PricingSummary } from "@/components/quotations/PricingSummary";
 import { BomTable } from "@/components/quotations/BomTable";
 import { BomLineForm } from "@/components/quotations/BomLineForm";
+import { ApplyTemplatePanel } from "@/components/quotations/ApplyTemplatePanel";
 import { QuotationTabs } from "@/components/quotations/QuotationTabs";
 import { LoadSizingPanel } from "@/components/quotations/LoadSizingPanel";
 import { RoiPanel } from "@/components/quotations/RoiPanel";
@@ -22,6 +23,8 @@ import {
 } from "@/components/quotations/RevisionForms";
 import { formatNumber, formatPhp } from "@/lib/format";
 import type {
+  BomTemplate,
+  BomTemplateLine,
   Customer,
   Equipment,
   EquipmentCategory,
@@ -42,6 +45,7 @@ import type {
 import {
   addBomLine,
   addSiteConsumption,
+  applyBomTemplate,
   changeStatus,
   createProjectFromRevision,
   createRevision,
@@ -104,6 +108,7 @@ export default async function QuotationDetailPage({
     { data: engineerName },
     { data: site },
     { data: bankRows },
+    { data: templateRows },
   ] = await Promise.all([
     supabase.from("revision_configurations").select("*").eq("revision_id", selectedRevision.id).single(),
     supabase.from("revision_costing").select("*").eq("revision_id", selectedRevision.id).single(),
@@ -141,6 +146,11 @@ export default async function QuotationDetailPage({
         "company.bank_account_number",
         "company.bank_branch",
       ]),
+    supabase
+      .from("bom_templates")
+      .select("*, bom_template_lines(*)")
+      .eq("is_active", true)
+      .order("system_size_kwp"),
   ]);
 
   const configuration = cfg as RevisionConfiguration;
@@ -153,6 +163,7 @@ export default async function QuotationDetailPage({
   const categoryList = (categories ?? []) as EquipmentCategory[];
   const supplierList = (suppliers ?? []) as Supplier[];
   const siteRow = (site ?? null) as Site | null;
+  const templateList = (templateRows ?? []) as (BomTemplate & { bom_template_lines: BomTemplateLine[] })[];
 
   const bankMap = new Map<string, unknown>((bankRows ?? []).map((r) => [r.key, r.value]));
   const bankValue = (key: string) => (bankMap.get(key) as string) || "";
@@ -196,6 +207,7 @@ export default async function QuotationDetailPage({
   const boundUpdatePricing = updatePricing.bind(null, q.id, selectedRevision.id);
   const boundUpdateHeader = updateRevisionHeader.bind(null, q.id, selectedRevision.id);
   const boundAddBomLine = addBomLine.bind(null, q.id, selectedRevision.id);
+  const boundApplyTemplate = applyBomTemplate.bind(null, q.id, selectedRevision.id);
   const boundDeleteBomLine = deleteBomLine.bind(null, q.id);
   const boundUpdateGroup = updateBomLineProposalGroup.bind(null, q.id);
   const boundSiteSizing = siteRow ? updateSiteSizing.bind(null, q.id, siteRow.id) : async () => {};
@@ -271,6 +283,20 @@ export default async function QuotationDetailPage({
                   deleteAction={bomEditable ? boundDeleteBomLine : undefined}
                   updateGroupAction={bomEditable ? boundUpdateGroup : undefined}
                 />
+                {bomEditable && (
+                  <details className="border-t border-black/5 px-5 py-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      + Apply standard BOM template
+                    </summary>
+                    <div className="mt-4">
+                      <ApplyTemplatePanel
+                        templates={templateList}
+                        equipment={equipmentList}
+                        action={boundApplyTemplate}
+                      />
+                    </div>
+                  </details>
+                )}
                 {bomEditable && (
                   <details className="border-t border-black/5 px-5 py-4">
                     <summary className="cursor-pointer text-sm font-medium text-brand-700">+ Add BOM line</summary>
