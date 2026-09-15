@@ -1,10 +1,17 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { canSeeCost } from "@/lib/roles";
-import { Badge, Card, EmptyState, Input } from "@/components/ui";
-import { formatNumber, formatPct, formatPhp } from "@/lib/format";
+import { Card, EmptyState, Input } from "@/components/ui";
+import { EquipmentCategoryTable } from "@/components/equipment/EquipmentCategoryTable";
+import { InventoryTabs } from "@/components/equipment/InventoryTabs";
 import type { EquipmentCurrentPriceView } from "@/lib/types";
+
+// The three categories that drive a quotation's major-equipment slots —
+// everything else in the catalog (mounting, wiring/protection, conduits,
+// grounding, etc.) is a supporting "Equipment" item, not a main material.
+// Matched by category code (stable) rather than name (Joel could rename a
+// category's display label later without meaning to move it between tabs).
+const MAIN_MATERIAL_CODES = new Set(["solar_panels", "inverters", "batteries"]);
 
 export default async function EquipmentPage({
   searchParams,
@@ -33,7 +40,11 @@ export default async function EquipmentPage({
 
   const [{ data, error }, { data: categoryRows }] = await Promise.all([
     query,
-    supabase.from("equipment_categories").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase
+      .from("equipment_categories")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .order("sort_order"),
   ]);
   const items = (data ?? []) as EquipmentCurrentPriceView[];
 
@@ -44,8 +55,28 @@ export default async function EquipmentPage({
     return acc;
   }, {});
   const orderedGroups = (categoryRows ?? [])
-    .map((c) => ({ name: c.name as string, rows: grouped[c.id as string] ?? [] }))
+    .map((c) => ({
+      name: c.name as string,
+      code: c.code as string,
+      rows: grouped[c.id as string] ?? [],
+    }))
     .filter((g) => g.rows.length > 0);
+
+  const mainGroups = orderedGroups.filter((g) => MAIN_MATERIAL_CODES.has(g.code));
+  const equipmentGroups = orderedGroups.filter((g) => !MAIN_MATERIAL_CODES.has(g.code));
+
+  const renderGroups = (groups: typeof orderedGroups, emptyDescription: string) =>
+    groups.length > 0 ? (
+      <div className="space-y-5">
+        {groups.map(({ name, rows }) => (
+          <EquipmentCategoryTable key={name} category={name} rows={rows} showCost={showCost} />
+        ))}
+      </div>
+    ) : (
+      <Card className="px-5 py-6">
+        <EmptyState title="Nothing here yet" description={q ? "Try a different search." : emptyDescription} />
+      </Card>
+    );
 
   return (
     <div className="space-y-5">
@@ -67,81 +98,17 @@ export default async function EquipmentPage({
         </Card>
       )}
 
-      {orderedGroups.map(({ name: category, rows }) => (
-        <Card key={category}>
-          <div className="border-b border-black/5 px-5 py-3">
-            <h2 className="text-sm font-semibold text-neutral-900">{category}</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-neutral-50 text-xs text-neutral-500">
-                <tr>
-                  <th className="px-5 py-2.5 font-medium">Description</th>
-                  <th className="px-5 py-2.5 font-medium">Manufacturer / Model</th>
-                  <th className="px-5 py-2.5 font-medium">Unit</th>
-                  <th className="px-5 py-2.5 font-medium">In stock</th>
-                  {showCost && <th className="px-5 py-2.5 font-medium">Cost</th>}
-                  {showCost && <th className="px-5 py-2.5 font-medium">Markup</th>}
-                  <th className="px-5 py-2.5 font-medium">Price status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
-                {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-neutral-50">
-                    <td className="px-5 py-2.5">
-                      <Link href={`/equipment/${r.id}`} className="font-medium text-brand-700 hover:underline">
-                        {r.description}
-                      </Link>
-                      <p className="text-xs text-neutral-400">{r.sku}</p>
-                    </td>
-                    <td className="px-5 py-2.5 text-neutral-600">
-                      {[r.manufacturer, r.model].filter(Boolean).join(" · ") || "—"}
-                    </td>
-                    <td className="px-5 py-2.5 text-neutral-600">{r.unit}</td>
-                    <td className="px-5 py-2.5 tabular-nums">
-                      {r.quantity_on_hand === null ? (
-                        <span className="text-neutral-400">Not tracked</span>
-                      ) : r.reorder_point !== null && r.quantity_on_hand <= r.reorder_point ? (
-                        <Badge tone="amber">{formatNumber(r.quantity_on_hand)} low</Badge>
-                      ) : r.quantity_on_hand === 0 ? (
-                        <Badge tone="red">0</Badge>
-                      ) : (
-                        <span className="text-neutral-800">{formatNumber(r.quantity_on_hand)}</span>
-                      )}
-                    </td>
-                    {showCost && (
-                      <td className="px-5 py-2.5 tabular-nums text-neutral-800">
-                        {formatPhp(r.cost_price_php)}
-                      </td>
-                    )}
-                    {showCost && (
-                      <td className="px-5 py-2.5 tabular-nums text-neutral-800">
-                        {formatPct(r.default_markup_rate)}
-                      </td>
-                    )}
-                    <td className="px-5 py-2.5">
-                      {r.price_record_id ? (
-                        r.price_is_stale ? (
-                          <Badge tone="amber">Stale · {formatNumber(r.price_age_days, 0)}d</Badge>
-                        ) : (
-                          <Badge tone="green">Current</Badge>
-                        )
-                      ) : (
-                        <Badge tone="red">No price on file</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ))}
-
-      {items.length === 0 && !error && (
+      {!error && items.length === 0 && (
         <Card className="px-5 py-6">
           <EmptyState title="No equipment found" description={q ? "Try a different search." : undefined} />
         </Card>
+      )}
+
+      {!error && items.length > 0 && (
+        <InventoryTabs
+          main={renderGroups(mainGroups, "No solar panel, inverter, or battery items on file yet.")}
+          equipments={renderGroups(equipmentGroups, "No other equipment items on file yet.")}
+        />
       )}
     </div>
   );
