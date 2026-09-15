@@ -22,7 +22,7 @@ export default async function NewBomTemplatePage() {
         <div>
           <h1 className="text-xl font-semibold text-neutral-900">New BOM template</h1>
           <p className="text-sm text-neutral-500">
-            Name it after the tier it covers — you'll add line items after saving.
+            Name it after the tier it covers — you&apos;ll add line items after saving.
           </p>
         </div>
         <LinkButton href="/bom-templates" variant="secondary" size="sm">
