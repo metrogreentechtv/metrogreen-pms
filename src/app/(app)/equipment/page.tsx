@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
-import { canSeeCost } from "@/lib/roles";
+import { canManageEquipment, canSeeCost } from "@/lib/roles";
 import { Card, EmptyState, Input } from "@/components/ui";
 import { EquipmentCategoryTable } from "@/components/equipment/EquipmentCategoryTable";
 import { InventoryTabs } from "@/components/equipment/InventoryTabs";
 import type { EquipmentCurrentPriceView } from "@/lib/types";
+import { deleteEquipment } from "./actions";
 
 // The three categories that drive a quotation's major-equipment slots —
 // everything else in the catalog (mounting, wiring/protection, conduits,
@@ -21,6 +22,7 @@ export default async function EquipmentPage({
   const supabase = await createClient();
   const user = await getCurrentUser();
   const showCost = user ? canSeeCost(user.roles) : false;
+  const canManage = user ? canManageEquipment(user.roles) : false;
   const q = searchParams?.q?.trim();
 
   let query = supabase
@@ -69,7 +71,14 @@ export default async function EquipmentPage({
     groups.length > 0 ? (
       <div className="space-y-5">
         {groups.map(({ name, rows }) => (
-          <EquipmentCategoryTable key={name} category={name} rows={rows} showCost={showCost} />
+          <EquipmentCategoryTable
+            key={name}
+            category={name}
+            rows={rows}
+            showCost={showCost}
+            canManage={canManage}
+            deleteAction={canManage ? deleteEquipment : undefined}
+          />
         ))}
       </div>
     ) : (

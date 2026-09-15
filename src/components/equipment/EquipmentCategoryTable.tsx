@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { formatNumber, formatPct, formatPhp } from "@/lib/format";
+import { EquipmentRowActions } from "@/components/equipment/EquipmentRowActions";
 import type { EquipmentCurrentPriceView } from "@/lib/types";
 
 /** One category's worth of the equipment catalog, as a titled table. Shared
@@ -10,10 +11,20 @@ export function EquipmentCategoryTable({
   category,
   rows,
   showCost,
+  canManage,
+  deleteAction,
 }: {
   category: string;
   rows: EquipmentCurrentPriceView[];
   showCost: boolean;
+  /** Administrator/management/engineer/procurement — same gate as the price
+   * history form on the equipment detail page (canManageEquipment). Shows
+   * the edit/delete row actions; the actual write is still enforced by RLS. */
+  canManage: boolean;
+  /** The unbound deleteEquipment server action, bound per-row to that row's
+   * id below — passed down from the page rather than imported here, same
+   * convention as every other row-actions setup in this app. */
+  deleteAction?: (equipmentId: string, formData: FormData) => void;
 }) {
   return (
     <Card>
@@ -31,6 +42,7 @@ export function EquipmentCategoryTable({
               {showCost && <th className="px-5 py-2.5 font-medium">Cost</th>}
               {showCost && <th className="px-5 py-2.5 font-medium">Markup</th>}
               <th className="px-5 py-2.5 font-medium">Price status</th>
+              {canManage && <th className="px-5 py-2.5" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
@@ -78,6 +90,15 @@ export function EquipmentCategoryTable({
                     <Badge tone="red">No price on file</Badge>
                   )}
                 </td>
+                {canManage && deleteAction && (
+                  <td className="px-5 py-2.5">
+                    <EquipmentRowActions
+                      equipmentId={r.id}
+                      equipmentName={r.description}
+                      deleteAction={deleteAction.bind(null, r.id)}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
