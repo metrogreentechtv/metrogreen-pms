@@ -333,6 +333,12 @@ export interface BomTemplateLine {
   model: string | null;
   quantity: number;
   unit: string;
+  // Reference price for this line — shows as "Amount" (quantity x this)
+  // per line and rolls up into the template's Total. A line priced from
+  // the catalog (equipment_id set) is re-priced live at apply-time; this
+  // is the fallback/reference price, and the only price used for a
+  // freeform line with no catalog item.
+  unit_price_php: number;
   notes: string | null;
   created_at: string;
 }

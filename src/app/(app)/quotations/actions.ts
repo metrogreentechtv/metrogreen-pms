@@ -553,9 +553,16 @@ export async function applyBomTemplate(quotationId: string, revisionId: string, 
     const model = (catalog?.model as string | null) ?? line.model;
     const unit = (catalog?.unit as string) ?? line.unit;
     const quantity = line.quantity;
+    // A line priced from the catalog (equipment_id resolved) always uses
+    // the live current price, same as the manual Add-BOM-line form. A
+    // freeform line with no catalog match has no live price to pull, so
+    // it falls back to the reference unit_price_php entered on the
+    // template itself, instead of landing on the BOM at ₱0.
     const unitCost = (catalog?.cost_price_php as number | null) ?? 0;
     const markupRate = (catalog?.default_markup_rate as number | null) ?? 0.2;
-    const sellingUnitPrice = Math.round(unitCost * (1 + markupRate) * 100) / 100;
+    const sellingUnitPrice = catalog
+      ? Math.round(unitCost * (1 + markupRate) * 100) / 100
+      : Math.round((line.unit_price_php ?? 0) * 100) / 100;
     const sellingLineTotal = Math.round(quantity * sellingUnitPrice * 100) / 100;
 
     const { data: inserted, error: insertError } = await supabase

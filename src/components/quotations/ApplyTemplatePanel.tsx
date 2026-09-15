@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Select } from "@/components/ui";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPhp } from "@/lib/format";
 import type { BomTemplate, BomTemplateLine, EquipmentCurrentPriceView } from "@/lib/types";
 
 type TemplateWithLines = BomTemplate & { bom_template_lines: BomTemplateLine[] };
@@ -27,6 +27,7 @@ export function ApplyTemplatePanel({
     () => (template?.bom_template_lines ?? []).filter((l) => !l.is_major).sort((a, b) => a.line_no - b.line_no),
     [template]
   );
+  const fixedLinesTotal = fixedLines.reduce((sum, l) => sum + l.quantity * l.unit_price_php, 0);
 
   const byCategory = useMemo(() => {
     const map: Record<string, EquipmentCurrentPriceView[]> = {};
@@ -95,16 +96,24 @@ export function ApplyTemplatePanel({
               </p>
               <ul className="mt-1 space-y-0.5 text-xs text-neutral-500">
                 {fixedLines.map((line) => (
-                  <li key={line.id}>
-                    {formatNumber(line.quantity)} {line.unit} — {line.description}
+                  <li key={line.id} className="flex justify-between gap-2">
+                    <span>
+                      {formatNumber(line.quantity)} {line.unit} — {line.description}
+                    </span>
+                    <span className="tabular-nums">{formatPhp(line.quantity * line.unit_price_php)}</span>
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 flex justify-between border-t border-black/5 pt-1.5 text-xs font-medium text-neutral-700">
+                <span>Fixed items subtotal</span>
+                <span className="tabular-nums">{formatPhp(fixedLinesTotal)}</span>
+              </p>
             </div>
           )}
 
           <p className="text-xs text-neutral-400">
-            Lines are added at current catalog prices. You can still add extra items or special inclusions
+            Lines are added at current catalog prices where a catalog item is on file, or at the
+            template&apos;s reference price otherwise. You can still add extra items or special inclusions
             below afterward.
           </p>
 

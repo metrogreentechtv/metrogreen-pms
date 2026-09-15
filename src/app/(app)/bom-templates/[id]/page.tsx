@@ -3,12 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { canEditBom } from "@/lib/roles";
 import { Badge, Button, Card, CardHeader, Field, Input, LinkButton, Select, Textarea } from "@/components/ui";
-import { formatNumber } from "@/lib/format";
+import { formatPhp } from "@/lib/format";
 import { TemplateLineForm } from "@/components/bom-templates/TemplateLineForm";
+import { EditLineQtyPrice } from "@/components/bom-templates/EditLineQtyPrice";
 import { DeleteTemplateLineButton } from "@/components/bom-templates/DeleteTemplateLineButton";
 import { DeleteTemplateButton } from "@/components/bom-templates/DeleteTemplateButton";
 import type { BomTemplate, BomTemplateLine, EquipmentCategory, EquipmentCurrentPriceView } from "@/lib/types";
-import { addTemplateLine, deleteTemplate, deleteTemplateLine, updateTemplate } from "../actions";
+import { addTemplateLine, deleteTemplate, deleteTemplateLine, updateTemplate, updateTemplateLine } from "../actions";
 
 const SYSTEM_TYPES = [
   ["", "Any system type"],
@@ -42,6 +43,8 @@ export default async function BomTemplateDetailPage({ params }: { params: { id: 
   const boundDelete = deleteTemplate.bind(null, t.id);
   const boundAddLine = addTemplateLine.bind(null, t.id);
   const boundDeleteLine = deleteTemplateLine.bind(null, t.id);
+  const boundUpdateLine = updateTemplateLine.bind(null, t.id);
+  const totalCost = lines.reduce((sum, l) => sum + l.quantity * l.unit_price_php, 0);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -99,10 +102,11 @@ export default async function BomTemplateDetailPage({ params }: { params: { id: 
           <table className="w-full text-left text-sm">
             <thead className="bg-neutral-50 text-xs text-neutral-500">
               <tr>
-                <th className="px-4 py-2.5 font-medium">#</th>
-                <th className="px-4 py-2.5 font-medium">Category</th>
+                <th className="px-4 py-2.5 font-medium">Item no.</th>
                 <th className="px-4 py-2.5 font-medium">Description</th>
-                <th className="px-4 py-2.5 font-medium">Qty</th>
+                <th className="px-4 py-2.5 font-medium">Category</th>
+                <th className="px-4 py-2.5 font-medium">Qty · Unit price</th>
+                <th className="px-4 py-2.5 font-medium">Amount</th>
                 <th className="px-4 py-2.5 font-medium">Type</th>
                 <th className="px-4 py-2.5" />
               </tr>
@@ -111,15 +115,23 @@ export default async function BomTemplateDetailPage({ params }: { params: { id: 
               {lines.map((l) => (
                 <tr key={l.id}>
                   <td className="px-4 py-2 text-neutral-400">{l.line_no}</td>
-                  <td className="px-4 py-2 text-neutral-600">{categoryName(l.category_id)}</td>
                   <td className="px-4 py-2">
                     <p className="font-medium text-neutral-900">{l.description}</p>
                     {(l.manufacturer || l.model) && (
                       <p className="text-xs text-neutral-500">{[l.manufacturer, l.model].filter(Boolean).join(" · ")}</p>
                     )}
                   </td>
-                  <td className="px-4 py-2 tabular-nums text-neutral-700">
-                    {formatNumber(l.quantity)} {l.unit}
+                  <td className="px-4 py-2 text-neutral-600">{categoryName(l.category_id)}</td>
+                  <td className="px-4 py-2">
+                    <EditLineQtyPrice
+                      quantity={l.quantity}
+                      unit={l.unit}
+                      unitPrice={l.unit_price_php}
+                      action={boundUpdateLine.bind(null, l.id)}
+                    />
+                  </td>
+                  <td className="px-4 py-2 tabular-nums font-medium text-neutral-900">
+                    {formatPhp(l.quantity * l.unit_price_php)}
                   </td>
                   <td className="px-4 py-2">
                     {l.is_major ? (
@@ -137,6 +149,17 @@ export default async function BomTemplateDetailPage({ params }: { params: { id: 
                 </tr>
               ))}
             </tbody>
+            {lines.length > 0 && (
+              <tfoot className="border-t border-black/10 text-sm font-semibold">
+                <tr>
+                  <td colSpan={4} className="px-4 py-2.5 text-right text-neutral-600">
+                    Total cost
+                  </td>
+                  <td className="px-4 py-2.5 tabular-nums">{formatPhp(totalCost)}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            )}
           </table>
           {lines.length === 0 && (
             <p className="px-4 py-6 text-center text-sm text-neutral-500">

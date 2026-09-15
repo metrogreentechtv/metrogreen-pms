@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { canEditBom } from "@/lib/roles";
 import { Badge, Card, EmptyState, LinkButton } from "@/components/ui";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPhp } from "@/lib/format";
 import type { BomTemplate } from "@/lib/types";
 
 export default async function BomTemplatesPage() {
@@ -14,10 +14,14 @@ export default async function BomTemplatesPage() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bom_templates")
-    .select("*, bom_template_lines(count)")
+    .select("*, bom_template_lines(quantity, unit_price_php)")
     .order("system_size_kwp");
 
-  const templates = (data ?? []) as (BomTemplate & { bom_template_lines: { count: number }[] })[];
+  const templates = (data ?? []) as (BomTemplate & {
+    bom_template_lines: { quantity: number; unit_price_php: number }[];
+  })[];
+  const templateTotal = (t: (typeof templates)[number]) =>
+    t.bom_template_lines.reduce((sum, l) => sum + l.quantity * l.unit_price_php, 0);
 
   return (
     <div className="space-y-5">
@@ -45,6 +49,7 @@ export default async function BomTemplatesPage() {
                 <th className="px-5 py-3 font-medium">System size</th>
                 <th className="px-5 py-3 font-medium">System type</th>
                 <th className="px-5 py-3 font-medium">Lines</th>
+                <th className="px-5 py-3 font-medium">Total cost</th>
                 <th className="px-5 py-3 font-medium">Status</th>
               </tr>
             </thead>
@@ -64,7 +69,10 @@ export default async function BomTemplatesPage() {
                     {t.system_type ? t.system_type.replace(/_/g, " ") : "Any"}
                   </td>
                   <td className="px-5 py-3 tabular-nums text-neutral-600">
-                    {t.bom_template_lines?.[0]?.count ?? 0}
+                    {t.bom_template_lines.length}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums font-medium text-neutral-900">
+                    {formatPhp(templateTotal(t))}
                   </td>
                   <td className="px-5 py-3">
                     <Badge tone={t.is_active ? "green" : "neutral"}>{t.is_active ? "Active" : "Inactive"}</Badge>

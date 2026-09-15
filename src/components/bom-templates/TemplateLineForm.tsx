@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { formatPhp } from "@/lib/format";
 import type { EquipmentCategory, EquipmentCurrentPriceView } from "@/lib/types";
 
 export function TemplateLineForm({
@@ -20,6 +21,7 @@ export function TemplateLineForm({
   const [model, setModel] = useState("");
   const [unit, setUnit] = useState("pc");
   const [quantity, setQuantity] = useState("1");
+  const [unitPrice, setUnitPrice] = useState("0");
   const [isMajor, setIsMajor] = useState(false);
 
   const byCategory = useMemo(() => {
@@ -39,7 +41,12 @@ export function TemplateLineForm({
     setManufacturer(eq.manufacturer ?? "");
     setModel(eq.model ?? "");
     setUnit(eq.unit);
+    const cost = eq.cost_price_php ?? 0;
+    const markup = eq.default_markup_rate ?? 0.2;
+    setUnitPrice(String(Math.round(cost * (1 + markup) * 100) / 100));
   }
+
+  const previewAmount = (Number(quantity) || 0) * (Number(unitPrice) || 0);
 
   return (
     <form action={action} className="space-y-3">
@@ -111,6 +118,21 @@ export function TemplateLineForm({
           <Input name="unit" required value={unit} onChange={(e) => setUnit(e.target.value)} />
         </Field>
       </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Field label="Unit price (₱)" hint={isMajor ? "Reference only — priced live from the catalog when applied." : undefined}>
+          <Input
+            name="unit_price_php"
+            type="number"
+            step="0.01"
+            required
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(e.target.value)}
+          />
+        </Field>
+      </div>
+
+      <p className="text-xs text-neutral-500">Amount {formatPhp(previewAmount)}</p>
 
       <Field label="Notes (optional)">
         <Textarea name="notes" rows={2} />

@@ -100,11 +100,30 @@ export async function addTemplateLine(templateId: string, formData: FormData) {
     model: String(formData.get("model") ?? "").trim() || null,
     quantity: Number(formData.get("quantity") ?? 1),
     unit: String(formData.get("unit") ?? "pc").trim() || "pc",
+    unit_price_php: Number(formData.get("unit_price_php") ?? 0),
     notes: String(formData.get("notes") ?? "").trim() || null,
   };
 
   const { error } = await supabase.from("bom_template_lines").insert(payload);
   if (error) throw new Error(`Could not add line: ${error.message}`);
+
+  revalidatePath(`/bom-templates/${templateId}`);
+}
+
+// Quick inline correction for a line's quantity/unit price (the two
+// figures that actually change often) without a delete-and-re-add round
+// trip — everything else about a line (category, description, major-slot
+// flag) is edited by removing it and adding it again.
+export async function updateTemplateLine(templateId: string, lineId: string, formData: FormData) {
+  const { supabase } = await requireTemplateEditor();
+
+  const payload = {
+    quantity: Number(formData.get("quantity") ?? 1),
+    unit_price_php: Number(formData.get("unit_price_php") ?? 0),
+  };
+
+  const { error } = await supabase.from("bom_template_lines").update(payload).eq("id", lineId);
+  if (error) throw new Error(`Could not update line: ${error.message}`);
 
   revalidatePath(`/bom-templates/${templateId}`);
 }
