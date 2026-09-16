@@ -6,6 +6,7 @@ const TABS = [
   { key: "load", label: "Load & Sizing" },
   { key: "design", label: "System Design" },
   { key: "boq", label: "BOQ" },
+  { key: "pricing", label: "Pricing" },
   { key: "roi", label: "ROI" },
   { key: "proposal", label: "Proposal" },
 ] as const;
@@ -16,11 +17,12 @@ export function QuotationTabs({
   load,
   design,
   boq,
+  pricing,
   roi,
   proposal,
 }: Record<TabKey, ReactNode>) {
   const [active, setActive] = useState<TabKey>("load");
-  const panels: Record<TabKey, ReactNode> = { load, design, boq, roi, proposal };
+  const panels: Record<TabKey, ReactNode> = { load, design, boq, pricing, roi, proposal };
 
   return (
     <div>

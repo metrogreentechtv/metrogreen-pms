@@ -2,12 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
-import { canApprove, canEditBom, canSeeCost, canSeeProfit, canWrite } from "@/lib/roles";
+import { canApprove, canEditBom, canSeeCost, canWrite } from "@/lib/roles";
 import { Badge, Card, CardHeader, LinkButton } from "@/components/ui";
 import { QuotationStatusBadge } from "@/components/quotations/StatusBadge";
 import { RevisionTimeline } from "@/components/quotations/RevisionTimeline";
 import { StatusActions } from "@/components/quotations/StatusActions";
-import { PricingSummary } from "@/components/quotations/PricingSummary";
 import { BomTable } from "@/components/quotations/BomTable";
 import { BomLineForm } from "@/components/quotations/BomLineForm";
 import { ApplyTemplatePanel } from "@/components/quotations/ApplyTemplatePanel";
@@ -72,14 +71,13 @@ export default async function QuotationDetailPage({
   const user = await getCurrentUser();
   const roles = user?.roles ?? [];
 
-  const [{ data: quotation }, { data: revisions }, { data: engineerSetting }] = await Promise.all([
+  const [{ data: quotation }, { data: revisions }] = await Promise.all([
     supabase.from("quotations").select("*, customers(*)").eq("id", params.id).maybeSingle(),
     supabase
       .from("quotation_revisions")
       .select("*")
       .eq("quotation_id", params.id)
       .order("rev_no", { ascending: false }),
-    supabase.from("settings").select("value").eq("key", "permissions.engineer_sees_profit").maybeSingle(),
   ]);
 
   if (!quotation) notFound();
@@ -184,10 +182,6 @@ export default async function QuotationDetailPage({
   const summary = (summaryRow ?? null) as VSiteConsumptionSummary | null;
 
   const showCost = canSeeCost(roles);
-  const showProfit = canSeeProfit(roles, {
-    engineerSeesProfitSetting: Boolean(engineerSetting?.value),
-    profileOverride: user?.profile?.can_see_profit_override,
-  });
   const isCurrentRevision = selectedRevision.is_current;
   const isDraft = selectedRevision.status === "draft";
   const bomEditable = isCurrentRevision && isDraft && canEditBom(roles);
@@ -312,6 +306,13 @@ export default async function QuotationDetailPage({
                 )}
               </Card>
             }
+            pricing={
+              <div className="space-y-6">
+                <CostingForm costing={costingRow} editable={costingEditable} action={boundUpdateCosting} />
+                <PricingForm pricing={pricingRow} editable={costingEditable} action={boundUpdatePricing} />
+                <RevisionHeaderForm revision={selectedRevision} action={boundUpdateHeader} />
+              </div>
+            }
             roi={
               <RoiPanel cfg={configuration} quotationId={q.id} editable={bomEditable} recalcAction={boundRecalc} />
             }
@@ -326,19 +327,6 @@ export default async function QuotationDetailPage({
               />
             }
           />
-
-          <PricingSummary
-            costing={costingRow}
-            margin={marginRow}
-            pricing={pricingRow}
-            showCost={showCost}
-            showProfit={showProfit}
-          />
-
-          {costingEditable && <CostingForm costing={costingRow} editable={costingEditable} action={boundUpdateCosting} />}
-          {costingEditable && <PricingForm pricing={pricingRow} editable={costingEditable} action={boundUpdatePricing} />}
-
-          <RevisionHeaderForm revision={selectedRevision} action={boundUpdateHeader} />
         </div>
 
         <div className="space-y-6">
