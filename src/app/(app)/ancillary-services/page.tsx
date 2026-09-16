@@ -33,7 +33,7 @@ export default async function AncillaryServicesPage() {
         <p className="text-sm text-neutral-500">
           Non-equipment services — Mobilization/Demobilization, trenching, canopy or roofing
           fabrication, roof painting, service entrance remodeling, and any others — offered as
-          "+ Add ancillary service" on a quotation&apos;s BOQ tab. Deactivating one keeps it on quotations
+          &quot;+ Add ancillary service&quot; on a quotation&apos;s BOQ tab. Deactivating one keeps it on quotations
           that already used it, but hides it from new selections.
         </p>
       </div>
