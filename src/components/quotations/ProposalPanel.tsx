@@ -28,7 +28,7 @@ export function ProposalPanel({
       <Card>
         <CardHeader
           title="Proposal BOM preview"
-          subtitle="Panel / inverter / battery itemized; racking, wiring, protection, and engineering + labor shown as 1 lot each"
+          subtitle="Panel / inverter / battery itemized; mounting, wiring, protection, and engineering/logistics/installation shown as 1 lot each; net metering, mobilization, roof-type mounting cost, and additional works itemized as add-ons"
         />
         {untagged.length > 0 && (
           <div className="mx-5 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">

@@ -1,12 +1,23 @@
 import type { ProposalGroup, VRevisionBomRow } from "@/lib/types";
 
 /**
- * The lot-based grouping structure for the Proposal document, as specified
- * by Joel: Solar Panel / Inverter / Battery are shown itemized (one line per
- * BOM line), Racking, DC Wire, AC Wire, Protection Devices, and Engineering
- * + Design + Labor are each collapsed into a single "1 lot" line, and the
- * add-ons (net metering, mobilization, roof premium, additional works) are
- * shown itemized so each can carry its own description and price.
+ * The lot-based grouping structure for the Proposal document. Simplified
+ * 2026-09-16 per Joel's request — the final proposal should show, in
+ * order: client data (handled outside this file, on the document itself),
+ * system specification (ditto), then this line-item list — Solar Panel /
+ * Inverter / Battery itemized (one line per BOM line); Mounting System,
+ * AC & DC Wire, AC & DC Protection, and Engineering/Logistics/Installation
+ * each collapsed into a single "1 lot" line; then the optional add-ons
+ * (Net Metering Application, Mobilization/Demobilization, Additional
+ * Mounting Cost by roof type, Additional Works — service entrance
+ * remodeling, inverter-enclosure/roofing fabrication, etc.) shown
+ * itemized so each can carry its own description and price.
+ *
+ * AC Wire and DC Wire used to be two separate lot lines — now combined
+ * into one "AC & DC Wire" line (mirroring how AC & DC Protection was
+ * already combined), so a quotation only needs one wiring cost instead
+ * of two. See buildProposalLines() for how older lines tagged with the
+ * pre-simplification "dc_wire"/"ac_wire" values still roll up here.
  */
 export const PROPOSAL_GROUPS: {
   value: ProposalGroup;
@@ -16,20 +27,37 @@ export const PROPOSAL_GROUPS: {
   { value: "solar_panel", label: "Solar Panel", mode: "itemized" },
   { value: "inverter", label: "Inverter", mode: "itemized" },
   { value: "battery", label: "Battery (hybrid/off-grid only)", mode: "itemized" },
-  { value: "mounting", label: "Racking / Mounting Structure", mode: "lot" },
-  { value: "dc_wire", label: "DC Wire", mode: "lot" },
-  { value: "ac_wire", label: "AC Wire", mode: "lot" },
-  { value: "protection", label: "AC & DC Protection Devices", mode: "lot" },
-  { value: "engineering_labor", label: "Engineering, Design & Labor", mode: "lot" },
-  { value: "net_metering", label: "Net Metering", mode: "itemized" },
-  { value: "mobilization", label: "Mobilization", mode: "itemized" },
-  { value: "roof_premium", label: "Additional Roof Type Cost", mode: "itemized" },
+  { value: "mounting", label: "Mounting System", mode: "lot" },
+  { value: "wiring", label: "AC & DC Wire", mode: "lot" },
+  { value: "protection", label: "AC & DC Protection", mode: "lot" },
+  { value: "engineering_labor", label: "Engineering, Logistics & Installation", mode: "lot" },
+  { value: "net_metering", label: "Net Metering Application", mode: "itemized" },
+  { value: "mobilization", label: "Mobilization / Demobilization", mode: "itemized" },
+  { value: "roof_premium", label: "Additional Mounting Cost (Roof Type)", mode: "itemized" },
   { value: "additional_works", label: "Additional Works", mode: "itemized" },
   { value: "other", label: "Other", mode: "itemized" },
 ];
 
+// Legacy proposal_group values retired by the 2026-09-16 simplification
+// above, mapped to the group they now roll up into. A BOM line tagged
+// before that date keeps its original stored value (no backfill run —
+// same "don't rewrite historical/locked data" approach used elsewhere in
+// this app) but still displays correctly, combined with any new lines
+// tagged "wiring" directly.
+const GROUP_ALIASES: Record<string, ProposalGroup> = {
+  dc_wire: "wiring",
+  ac_wire: "wiring",
+};
+
+/** Maps a stored proposal_group value (including a retired legacy one) to the group it now displays/rolls up as. */
+export function canonicalProposalGroup(value: string | null): string | null {
+  if (!value) return value;
+  return GROUP_ALIASES[value] ?? value;
+}
+
 export function proposalGroupLabel(value: string | null): string {
-  return PROPOSAL_GROUPS.find((g) => g.value === value)?.label ?? "Ungrouped";
+  const canonical = canonicalProposalGroup(value);
+  return PROPOSAL_GROUPS.find((g) => g.value === canonical)?.label ?? "Ungrouped";
 }
 
 export interface ProposalLine {
@@ -55,9 +83,10 @@ export function buildProposalLines(bom: VRevisionBomRow[]): ProposalLine[] {
   const byGroup = new Map<string, VRevisionBomRow[]>();
   for (const row of bom) {
     if (!row.show_on_document || !row.proposal_group) continue;
-    const list = byGroup.get(row.proposal_group);
+    const group = GROUP_ALIASES[row.proposal_group] ?? row.proposal_group;
+    const list = byGroup.get(group);
     if (list) list.push(row);
-    else byGroup.set(row.proposal_group, [row]);
+    else byGroup.set(group, [row]);
   }
 
   const lines: ProposalLine[] = [];

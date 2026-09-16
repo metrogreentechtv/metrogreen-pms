@@ -513,6 +513,12 @@ export type ProposalGroup =
   | "inverter"
   | "battery"
   | "mounting"
+  | "wiring"
+  // "dc_wire"/"ac_wire" are legacy values, superseded by the combined
+  // "wiring" group (2026-09-16 Proposal simplification) — kept here (and
+  // in the DB check constraint) only so historical BOM lines already
+  // tagged with either one still type-check and keep rolling up
+  // correctly; no longer offered as a choice for a new line.
   | "dc_wire"
   | "ac_wire"
   | "protection"

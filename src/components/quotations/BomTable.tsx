@@ -1,7 +1,7 @@
 "use client";
 
 import { formatNumber, formatPhp } from "@/lib/format";
-import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
+import { canonicalProposalGroup, PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { VRevisionBomRow } from "@/lib/types";
 
 export function BomTable({
@@ -73,7 +73,7 @@ export function BomTable({
                   <form action={updateGroupAction!.bind(null, r.bom_line_id)}>
                     <select
                       name="proposal_group"
-                      defaultValue={r.proposal_group ?? ""}
+                      defaultValue={canonicalProposalGroup(r.proposal_group) ?? ""}
                       onChange={(e) => e.currentTarget.form?.requestSubmit()}
                       className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs text-neutral-700"
                     >
