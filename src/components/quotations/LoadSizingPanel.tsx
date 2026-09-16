@@ -1,5 +1,6 @@
 import { Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
+import { QuickSizingCalculator } from "@/components/quotations/QuickSizingCalculator";
 import type { RevisionConfiguration, Site, SiteConsumption, VSiteConsumptionSummary } from "@/lib/types";
 
 const MONTH_NAMES = [
@@ -40,6 +41,13 @@ export function LoadSizingPanel({
 
       {site && (
         <>
+          <QuickSizingCalculator
+            defaultRatePhpPerKwh={site.blended_retail_rate_php_kwh ?? summary?.derived_blended_rate_php_kwh ?? null}
+            defaultPeakSunHours={site.peak_sun_hours_per_day}
+            editable={editable}
+            saveConsumptionAction={addConsumptionAction}
+          />
+
           <Card>
             <CardHeader
               title="Electricity bill / consumption history"

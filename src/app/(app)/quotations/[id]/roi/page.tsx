@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatNumber, formatPhp, formatPct } from "@/lib/format";
 import { PrintButton } from "@/components/quotations/PrintButton";
+import { MonthlyGenerationChart } from "@/components/quotations/MonthlyGenerationChart";
 import type { Customer, Quotation, QuotationRevision, RevisionConfiguration } from "@/lib/types";
 
 export default async function QuotationRoiPage({
@@ -103,6 +104,13 @@ export default async function QuotationRoiPage({
           <RoiStat label="Self-consumed / yr" value={configuration?.self_consumed_kwh_year1 ? `${formatNumber(configuration.self_consumed_kwh_year1, 0)} kWh` : "—"} />
           <RoiStat label="Exported / yr" value={configuration?.exported_kwh_year1 ? `${formatNumber(configuration.exported_kwh_year1, 0)} kWh` : "—"} />
           <RoiStat label="CO₂ avoided / yr" value={configuration?.co2_avoided_kg_year1 ? `${formatNumber(configuration.co2_avoided_kg_year1, 0)} kg` : "—"} />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase text-neutral-400">Estimated generation by month</p>
+        <div className="rounded-lg border border-neutral-200">
+          <MonthlyGenerationChart monthlyKwh={configuration?.monthly_kwh ?? null} />
         </div>
       </div>
 

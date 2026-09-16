@@ -1,5 +1,6 @@
 import { Button, Card, CardHeader, LinkButton } from "@/components/ui";
 import { Stat } from "@/components/quotations/RevisionForms";
+import { MonthlyGenerationChart } from "@/components/quotations/MonthlyGenerationChart";
 import { formatNumber, formatPhp, formatPct } from "@/lib/format";
 import type { RevisionConfiguration } from "@/lib/types";
 
@@ -33,6 +34,9 @@ export function RoiPanel({
         <Stat label="Exported / yr" value={cfg.exported_kwh_year1 ? `${formatNumber(cfg.exported_kwh_year1, 0)} kWh` : "—"} />
         <Stat label="Lifetime generation" value={cfg.lifetime_kwh ? `${formatNumber(cfg.lifetime_kwh, 0)} kWh` : "—"} />
         <Stat label="Annual generation" value={cfg.annual_kwh_year1 ? `${formatNumber(cfg.annual_kwh_year1, 0)} kWh` : "—"} />
+      </div>
+      <div className="border-t border-black/5">
+        <MonthlyGenerationChart monthlyKwh={cfg.monthly_kwh} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-5 py-4">
         {editable ? (
