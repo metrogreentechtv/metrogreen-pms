@@ -86,6 +86,27 @@ export function IconBomTemplates({ className }: IconProps) {
   );
 }
 
+export function IconMountingTypes({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <path d="M3 20h18" />
+      <path d="M5 20l4-11h6l4 11" />
+      <path d="M8.5 14h7" />
+      <path d="M12 3v6" />
+    </svg>
+  );
+}
+
+export function IconAncillaryServices({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <rect x="3" y="10" width="18" height="9" rx="1.5" />
+      <path d="M7 10V7a5 5 0 0110 0v3" />
+      <path d="M12 13.5v2.5" />
+    </svg>
+  );
+}
+
 export function IconUsers({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden>

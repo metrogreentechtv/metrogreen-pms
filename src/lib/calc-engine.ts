@@ -29,6 +29,12 @@ export interface CalcSettings {
   omCostPctOfCapex: number;
   inverterReplacementYear: number;
   inverterReplacementCostPct: number;
+  // Interannual generation variability (coefficient of variation, as a
+  // fraction) used to derate the P50-equivalent generation estimate down
+  // to a P90 (90% probability-of-exceedance) figure, the standard solar
+  // bankability convention: P90 = P50 x (1 - 1.282 x CV). See
+  // settings["energy.interannual_cv_pct"].
+  interannualCv: number;
 }
 
 export interface CalcInputs {
@@ -46,6 +52,14 @@ export interface CalcInputs {
 }
 
 export interface CalcOutputs {
+  // P50-equivalent (expected-case) year-1 generation, before the P90
+  // derate is applied. annualKwhYear1 below (and everything computed from
+  // it — savings, payback, ROI, NPV, IRR, monthly split) is the derated
+  // P90 figure used everywhere in the app, so financial output is
+  // conservative/bankable by default.
+  annualKwhP50Year1: number;
+  p90DerateFactor: number;
+  interannualCvUsed: number;
   annualKwhYear1: number;
   monthlyKwh: number[];
   lifetimeKwh: number;
@@ -79,13 +93,23 @@ export function computeEngineering(
     totalContractPricePhp,
   } = inputs;
 
-  // Year-1 generation, net of first-year light-induced degradation.
-  const annualKwhYear1 =
+  // Year-1 generation, net of first-year light-induced degradation —
+  // this is the P50 (expected-case) estimate.
+  const annualKwhP50Year1 =
     dcCapacityKwp *
     peakSunHours *
     365 *
     performanceRatio *
     (1 - settings.firstYearLid);
+
+  // Derate P50 to a P90 (90% probability-of-exceedance) figure using the
+  // standard bankability formula: P90 = P50 x (1 - 1.282 x CV). Every
+  // downstream figure (savings, payback, ROI, NPV, IRR, LCOE) is computed
+  // from this P90 value, not the P50 one, so the quotation's financial
+  // case is conservative by default.
+  const interannualCvUsed = settings.interannualCv;
+  const p90DerateFactor = Math.max(0, 1 - 1.282 * interannualCvUsed);
+  const annualKwhYear1 = annualKwhP50Year1 * p90DerateFactor;
 
   const dist =
     settings.monthlyDistribution.length === 12
@@ -153,6 +177,9 @@ export function computeEngineering(
     : null;
 
   return {
+    annualKwhP50Year1: round(annualKwhP50Year1),
+    p90DerateFactor: round(p90DerateFactor, 4),
+    interannualCvUsed,
     annualKwhYear1: round(annualKwhYear1),
     monthlyKwh,
     lifetimeKwh: round(lifetimeKwh),

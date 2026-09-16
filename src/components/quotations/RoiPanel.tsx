@@ -1,4 +1,4 @@
-import { Button, Card, CardHeader, LinkButton } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, LinkButton } from "@/components/ui";
 import { Stat } from "@/components/quotations/RevisionForms";
 import { MonthlyGenerationChart } from "@/components/quotations/MonthlyGenerationChart";
 import { formatNumber, formatPhp, formatPct } from "@/lib/format";
@@ -15,11 +15,22 @@ export function RoiPanel({
   editable: boolean;
   recalcAction: () => Promise<void>;
 }) {
+  const outputs = (cfg.calc_outputs ?? {}) as {
+    interannualCvUsed?: number;
+    p90DerateFactor?: number;
+    annualKwhP50Year1?: number;
+  };
+
   return (
     <Card>
       <CardHeader
         title="Return on investment"
         subtitle="Computed from the System Design configuration, the current BOM cost, and the site's consumption/rate on the Load & Sizing tab"
+        action={
+          outputs.p90DerateFactor != null ? (
+            <Badge tone="blue">P90 (Philippines working default)</Badge>
+          ) : undefined
+        }
       />
       <div className="grid grid-cols-2 gap-4 px-5 py-5 sm:grid-cols-4">
         <Stat label="Year-1 savings" value={formatPhp(cfg.annual_savings_year1_php)} />
@@ -38,6 +49,16 @@ export function RoiPanel({
       <div className="border-t border-black/5">
         <MonthlyGenerationChart monthlyKwh={cfg.monthly_kwh} />
       </div>
+      {outputs.p90DerateFactor != null && (
+        <p className="border-t border-black/5 px-5 py-3 text-xs text-neutral-500">
+          Generation and every figure above derate the expected (P50) estimate
+          {outputs.annualKwhP50Year1 ? ` of ${formatNumber(outputs.annualKwhP50Year1, 0)} kWh/yr` : ""} to a P90
+          (90% probability-of-exceedance) figure — P90 = P50 × (1 − 1.282 × CV), using an interannual
+          variability (CV) of {formatPct(outputs.interannualCvUsed ?? 0)}. That CV is a working default, not
+          yet a Philippines/site-specific figure — confirm it under Settings → Energy before relying on
+          these numbers for financing.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-5 py-4">
         {editable ? (
           <form action={recalcAction}>

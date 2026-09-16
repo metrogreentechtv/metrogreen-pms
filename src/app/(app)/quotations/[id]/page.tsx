@@ -9,6 +9,7 @@ import { RevisionTimeline } from "@/components/quotations/RevisionTimeline";
 import { StatusActions } from "@/components/quotations/StatusActions";
 import { BomTable } from "@/components/quotations/BomTable";
 import { BomLineForm } from "@/components/quotations/BomLineForm";
+import { AddAncillaryServiceForm } from "@/components/quotations/AddAncillaryServiceForm";
 import { ApplyTemplatePanel } from "@/components/quotations/ApplyTemplatePanel";
 import { QuotationTabs } from "@/components/quotations/QuotationTabs";
 import { LoadSizingPanel } from "@/components/quotations/LoadSizingPanel";
@@ -22,12 +23,14 @@ import {
 } from "@/components/quotations/RevisionForms";
 import { formatNumber, formatPhp } from "@/lib/format";
 import type {
+  AncillaryService,
   BomTemplate,
   BomTemplateLine,
   Customer,
   Equipment,
   EquipmentCategory,
   EquipmentCurrentPriceView,
+  MountingType,
   Quotation,
   QuotationRevision,
   RevisionConfiguration,
@@ -42,6 +45,7 @@ import type {
   VSiteConsumptionSummary,
 } from "@/lib/types";
 import {
+  addAncillaryServiceLine,
   addBomLine,
   addSiteConsumption,
   applyBomTemplate,
@@ -107,6 +111,8 @@ export default async function QuotationDetailPage({
     { data: site },
     { data: bankRows },
     { data: templateRows },
+    { data: mountingTypeRows },
+    { data: ancillaryServiceRows },
   ] = await Promise.all([
     supabase.from("revision_configurations").select("*").eq("revision_id", selectedRevision.id).single(),
     supabase.from("revision_costing").select("*").eq("revision_id", selectedRevision.id).single(),
@@ -149,6 +155,8 @@ export default async function QuotationDetailPage({
       .select("*, bom_template_lines(*)")
       .eq("is_active", true)
       .order("system_size_kwp"),
+    supabase.from("mounting_types").select("*").eq("is_active", true).order("sort_order"),
+    supabase.from("ancillary_services").select("*").eq("is_active", true).order("sort_order"),
   ]);
 
   const configuration = cfg as RevisionConfiguration;
@@ -162,6 +170,8 @@ export default async function QuotationDetailPage({
   const supplierList = (suppliers ?? []) as Supplier[];
   const siteRow = (site ?? null) as Site | null;
   const templateList = (templateRows ?? []) as (BomTemplate & { bom_template_lines: BomTemplateLine[] })[];
+  const mountingTypes = (mountingTypeRows ?? []) as MountingType[];
+  const ancillaryServices = (ancillaryServiceRows ?? []) as AncillaryService[];
 
   const bankMap = new Map<string, unknown>((bankRows ?? []).map((r) => [r.key, r.value]));
   const bankValue = (key: string) => (bankMap.get(key) as string) || "";
@@ -187,9 +197,12 @@ export default async function QuotationDetailPage({
   const bomEditable = isCurrentRevision && isDraft && canEditBom(roles);
   const costingEditable = isCurrentRevision && isDraft && showCost;
 
-  const modules = equipmentList.filter((e) => e.watt_peak != null);
-  const inverters = equipmentList.filter((e) => e.inverter_ac_kw != null);
-  const batteries = equipmentList.filter((e) => e.battery_usable_kwh != null);
+  // Sourced from the Main Materials inventory categories, regardless of
+  // quantity on hand (no quantity_on_hand filter here) — matches
+  // equipment/page.tsx's MAIN_MATERIAL_CODES grouping.
+  const modules = equipmentList.filter((e) => e.category_code === "solar_panels");
+  const inverters = equipmentList.filter((e) => e.category_code === "inverters");
+  const batteries = equipmentList.filter((e) => e.category_code === "batteries");
 
   const boundChangeStatus = changeStatus.bind(null, q.id, selectedRevision.id);
   const boundOverrideMargin = overrideMargin.bind(null, q.id, selectedRevision.id);
@@ -201,6 +214,7 @@ export default async function QuotationDetailPage({
   const boundUpdatePricing = updatePricing.bind(null, q.id, selectedRevision.id);
   const boundUpdateHeader = updateRevisionHeader.bind(null, q.id, selectedRevision.id);
   const boundAddBomLine = addBomLine.bind(null, q.id, selectedRevision.id);
+  const boundAddAncillaryService = addAncillaryServiceLine.bind(null, q.id, selectedRevision.id);
   const boundApplyTemplate = applyBomTemplate.bind(null, q.id, selectedRevision.id);
   const boundDeleteBomLine = deleteBomLine.bind(null, q.id);
   const boundUpdateGroup = updateBomLineProposalGroup.bind(null, q.id);
@@ -263,6 +277,7 @@ export default async function QuotationDetailPage({
                 modules={modules}
                 inverters={inverters}
                 batteries={batteries}
+                mountingTypes={mountingTypes}
                 editable={bomEditable}
                 action={boundUpdateConfig}
                 recalcAction={boundRecalc}
@@ -300,6 +315,19 @@ export default async function QuotationDetailPage({
                         equipment={equipmentList}
                         suppliers={supplierList}
                         action={boundAddBomLine}
+                      />
+                    </div>
+                  </details>
+                )}
+                {bomEditable && (
+                  <details className="border-t border-black/5 px-5 py-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      + Add ancillary service
+                    </summary>
+                    <div className="mt-4">
+                      <AddAncillaryServiceForm
+                        services={ancillaryServices}
+                        action={boundAddAncillaryService}
                       />
                     </div>
                   </details>

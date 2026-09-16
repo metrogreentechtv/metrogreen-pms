@@ -7,11 +7,13 @@ import type { AppRole } from "@/lib/types";
 import { cx } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
 import {
+  IconAncillaryServices,
   IconAuditLog,
   IconBomTemplates,
   IconCustomers,
   IconDashboard,
   IconEquipment,
+  IconMountingTypes,
   IconProjectManagement,
   IconProjects,
   IconQuotations,
@@ -61,6 +63,18 @@ const NAV: NavGroup[] = [
         href: "/bom-templates",
         label: "BOM Templates",
         icon: IconBomTemplates,
+        roles: ["administrator", "engineer"] as AppRole[],
+      },
+      {
+        href: "/mounting-types",
+        label: "Mounting Types",
+        icon: IconMountingTypes,
+        roles: ["administrator", "engineer"] as AppRole[],
+      },
+      {
+        href: "/ancillary-services",
+        label: "Ancillary Services",
+        icon: IconAncillaryServices,
         roles: ["administrator", "engineer"] as AppRole[],
       },
     ],

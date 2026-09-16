@@ -343,6 +343,47 @@ export interface BomTemplateLine {
   created_at: string;
 }
 
+// A selectable mounting-structure type (roof mount, ground mount, carport,
+// ballasted, etc.) with a reference price per kWp of DC capacity. Managed
+// under Mounting Types (administrator/engineer) and picked on the
+// quotation's System Design tab — see RevisionConfiguration.mounting_type_id.
+export interface MountingType {
+  id: string;
+  name: string;
+  price_per_kwp_php: number;
+  notes: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
+
+export type AncillaryPricingMethod = "per_sqm" | "flat" | "per_linear_meter" | "per_unit";
+
+// A non-equipment ancillary/civil-works service (Mobilization/Demobilization,
+// trenching, canopy fabrication, roof painting, service entrance
+// remodeling, etc.) that can be added to a quotation's BOQ. Managed under
+// Ancillary Services; "+ Add ancillary service" on the BOQ tab inserts a
+// revision_bom_lines row priced by pricing_method x rate_php.
+export interface AncillaryService {
+  id: string;
+  name: string;
+  pricing_method: AncillaryPricingMethod;
+  rate_php: number;
+  unit_label: string | null;
+  default_category_id: string | null;
+  default_proposal_group: ProposalGroup | null;
+  notes: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
+
 export interface Quotation {
   id: string;
   quotation_no: string;
@@ -413,6 +454,7 @@ export interface RevisionConfiguration {
   critical_load_kw: number | null;
   required_backup_hours: number | null;
   mounting_type: string | null;
+  mounting_type_id: string | null;
   mounting_notes: string | null;
   monitoring_system: string | null;
   protection_notes: string | null;

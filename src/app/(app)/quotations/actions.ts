@@ -143,6 +143,7 @@ const CONFIGURATION_TEXT_FIELDS = [
   "module_equipment_id",
   "inverter_equipment_id",
   "battery_equipment_id",
+  "mounting_type_id",
   "mounting_type",
   "mounting_notes",
   "monitoring_system",
@@ -168,6 +169,25 @@ export async function updateConfiguration(
   for (const key of CONFIGURATION_TEXT_FIELDS) {
     if (!formData.has(key)) continue;
     payload[key] = String(formData.get(key) ?? "").trim() || null;
+  }
+
+  // mounting_type stays a free-text column for backward compatibility
+  // (historical revisions, the printed proposal, anything else still
+  // reading it as text). When a mounting type is picked from the new
+  // dropdown, mirror its name into that column so those readers keep
+  // working without changes.
+  if (formData.has("mounting_type_id")) {
+    const mountingTypeId = payload.mounting_type_id as string | null;
+    if (mountingTypeId) {
+      const { data: mt } = await supabase
+        .from("mounting_types")
+        .select("name")
+        .eq("id", mountingTypeId)
+        .maybeSingle();
+      payload.mounting_type = mt?.name ?? null;
+    } else {
+      payload.mounting_type = null;
+    }
   }
 
   if (Object.keys(payload).length === 0) return;
@@ -300,6 +320,7 @@ export async function recalculateEngineering(quotationId: string, revisionId: st
     omCostPctOfCapex: getNum("finance.om_cost_pct_of_capex", 0.01),
     inverterReplacementYear: getNum("finance.inverter_replacement_year", 12),
     inverterReplacementCostPct: getNum("finance.inverter_replacement_cost_pct", 0.1),
+    interannualCv: getNum("energy.interannual_cv_pct", 0.05),
   };
 
   // site + consumption context (best effort — falls back to defaults)
@@ -485,6 +506,84 @@ export async function addBomLine(quotationId: string, revisionId: string, formDa
   });
 
   if (costError) throw new Error(`Could not save BOM line cost: ${costError.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+// Adds a line to the BOQ from the Ancillary Services catalog (Mobilization/
+// Demobilization, trenching, canopy fabrication, roof painting, service
+// entrance remodeling, etc. — managed under Ancillary Services). Mirrors
+// addBomLine's insert-then-cost-row shape. Cost is set equal to the
+// selling rate (zero-margin pass-through) since these services carry a
+// single rate on file, not a separate cost/markup split — correct the
+// rate under Ancillary Services, or delete and re-add the line.
+export async function addAncillaryServiceLine(
+  quotationId: string,
+  revisionId: string,
+  formData: FormData
+) {
+  const { supabase } = await requireUser();
+
+  const serviceId = String(formData.get("service_id") ?? "").trim();
+  if (!serviceId) throw new Error("Choose an ancillary service first.");
+
+  const { data: service, error: serviceError } = await supabase
+    .from("ancillary_services")
+    .select("*")
+    .eq("id", serviceId)
+    .single();
+  if (serviceError || !service) throw new Error("Could not load that ancillary service.");
+  if (!service.default_category_id) {
+    throw new Error(
+      `"${service.name}" has no equipment category set — set one under Ancillary Services first.`
+    );
+  }
+
+  const quantity = service.pricing_method === "flat" ? 1 : Number(formData.get("quantity") ?? 0);
+  if (!quantity || quantity <= 0) {
+    throw new Error(`Enter a quantity (${service.unit_label ?? "unit"}) greater than zero.`);
+  }
+
+  const rate = service.rate_php ?? 0;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  const { count } = await supabase
+    .from("revision_bom_lines")
+    .select("id", { count: "exact", head: true })
+    .eq("revision_id", revisionId);
+
+  const { data: line, error } = await supabase
+    .from("revision_bom_lines")
+    .insert({
+      revision_id: revisionId,
+      line_no: (count ?? 0) + 1,
+      category_id: service.default_category_id,
+      description: service.name,
+      quantity,
+      unit: service.unit_label ?? "lot",
+      selling_unit_price_php: rate,
+      selling_line_total_php: Math.round(quantity * rate * 100) / 100,
+      show_on_document: true,
+      notes,
+      proposal_group: service.default_proposal_group,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`Could not add "${service.name}": ${error.message}`);
+
+  const { error: costError } = await supabase.from("revision_bom_line_costs").insert({
+    bom_line_id: line.id,
+    revision_id: revisionId,
+    unit_cost_php: rate,
+    line_cost_php: Math.round(rate * quantity * 100) / 100,
+    markup_rate: 0,
+    price_is_estimate: true,
+  });
+
+  if (costError) {
+    throw new Error(`Could not save cost for "${service.name}": ${costError.message}`);
+  }
 
   revalidatePath(`/quotations/${quotationId}`);
 }

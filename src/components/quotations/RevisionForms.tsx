@@ -1,8 +1,9 @@
 import { Button, Card, CardHeader, Field, Input, Select, Textarea } from "@/components/ui";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPhp } from "@/lib/format";
 import type {
   Equipment,
   EquipmentCurrentPriceView,
+  MountingType,
   RevisionConfiguration,
   RevisionCosting,
   RevisionPricing,
@@ -14,6 +15,7 @@ export function ConfigurationForm({
   modules,
   inverters,
   batteries,
+  mountingTypes,
   editable,
   action,
   recalcAction,
@@ -22,10 +24,16 @@ export function ConfigurationForm({
   modules: EquipmentCurrentPriceView[];
   inverters: EquipmentCurrentPriceView[];
   batteries: EquipmentCurrentPriceView[];
+  mountingTypes: MountingType[];
   editable: boolean;
   action: (formData: FormData) => Promise<void>;
   recalcAction: () => Promise<void>;
 }) {
+  const selectedMountingType = mountingTypes.find((m) => m.id === cfg.mounting_type_id);
+  const mountingReferenceCost =
+    selectedMountingType && cfg.dc_capacity_kwp
+      ? selectedMountingType.price_per_kwp_php * cfg.dc_capacity_kwp
+      : null;
   return (
     <Card>
       <CardHeader
@@ -102,8 +110,24 @@ export function ConfigurationForm({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Mounting type">
-              <Input name="mounting_type" defaultValue={cfg.mounting_type ?? ""} />
+            <Field
+              label="Mounting type"
+              hint={
+                mountingReferenceCost != null
+                  ? `Reference cost: ${formatPhp(mountingReferenceCost)} (${formatPhp(
+                      selectedMountingType!.price_per_kwp_php
+                    )}/kWp × ${formatNumber(cfg.dc_capacity_kwp ?? 0, 1)} kWp)`
+                  : "Managed under Mounting Types (Admin)"
+              }
+            >
+              <Select name="mounting_type_id" defaultValue={cfg.mounting_type_id ?? ""}>
+                <option value="">—</option>
+                {mountingTypes.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({formatPhp(m.price_per_kwp_php)}/kWp)
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
 

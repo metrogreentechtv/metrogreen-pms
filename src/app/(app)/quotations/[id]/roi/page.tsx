@@ -42,6 +42,11 @@ export default async function QuotationRoiPage({
   const configuration = cfg as RevisionConfiguration;
   const company = new Map<string, unknown>((settingsRows ?? []).map((r) => [r.key, r.value]));
   const s = (key: string) => (company.get(key) as string) || "";
+  const outputs = (configuration?.calc_outputs ?? {}) as {
+    interannualCvUsed?: number;
+    p90DerateFactor?: number;
+    annualKwhP50Year1?: number;
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 bg-white p-8 text-sm text-neutral-800 shadow-sm print:shadow-none">
@@ -68,6 +73,11 @@ export default async function QuotationRoiPage({
           <p className="text-xs text-neutral-500">
             Rev {String(revision.rev_no).padStart(2, "0")} · {formatDate(revision.quotation_date)}
           </p>
+          {outputs.p90DerateFactor != null && (
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+              P90 estimate
+            </p>
+          )}
         </div>
       </div>
 
@@ -117,6 +127,15 @@ export default async function QuotationRoiPage({
       <p className="text-[11px] text-neutral-400">
         Estimates only, based on the configuration and assumptions on file at the time of printing. Actual
         performance and savings may vary with irradiance, consumption, and utility rates.
+        {outputs.p90DerateFactor != null && (
+          <>
+            {" "}
+            Generation and all financial figures above are P90 (90% probability-of-exceedance) estimates —
+            P90 = P50 × (1 − 1.282 × CV), using an interannual variability (CV) of{" "}
+            {formatPct(outputs.interannualCvUsed ?? 0)}, a working default pending a site/Philippines-specific
+            figure.
+          </>
+        )}
       </p>
 
       <div className="print:hidden">
