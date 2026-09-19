@@ -340,6 +340,11 @@ export interface BomTemplateLine {
   // freeform line with no catalog item.
   unit_price_php: number;
   notes: string | null;
+  // Which Proposal-document group this line lands in when the template is
+  // applied to a quotation — carried onto revision_bom_lines.proposal_group
+  // by applyBomTemplate() (2026-09-19, BOS templates). Null = untagged
+  // ("Ungrouped" on the Proposal), same as any other BOM line.
+  default_proposal_group: ProposalGroup | null;
   created_at: string;
 }
 

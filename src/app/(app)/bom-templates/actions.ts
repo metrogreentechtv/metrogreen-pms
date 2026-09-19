@@ -102,6 +102,7 @@ export async function addTemplateLine(templateId: string, formData: FormData) {
     unit: String(formData.get("unit") ?? "pc").trim() || "pc",
     unit_price_php: Number(formData.get("unit_price_php") ?? 0),
     notes: String(formData.get("notes") ?? "").trim() || null,
+    default_proposal_group: String(formData.get("default_proposal_group") ?? "").trim() || null,
   };
 
   const { error } = await supabase.from("bom_template_lines").insert(payload);

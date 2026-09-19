@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { canEditBom } from "@/lib/roles";
 import { Badge, Button, Card, CardHeader, Field, Input, LinkButton, Select, Textarea } from "@/components/ui";
 import { formatPhp } from "@/lib/format";
+import { proposalGroupLabel } from "@/lib/proposal-bom";
 import { TemplateLineForm } from "@/components/bom-templates/TemplateLineForm";
 import { EditLineQtyPrice } from "@/components/bom-templates/EditLineQtyPrice";
 import { DeleteTemplateLineButton } from "@/components/bom-templates/DeleteTemplateLineButton";
@@ -121,7 +122,12 @@ export default async function BomTemplateDetailPage({ params }: { params: { id: 
                       <p className="text-xs text-neutral-500">{[l.manufacturer, l.model].filter(Boolean).join(" · ")}</p>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-neutral-600">{categoryName(l.category_id)}</td>
+                  <td className="px-4 py-2 text-neutral-600">
+                    {categoryName(l.category_id)}
+                    <p className="text-xs text-neutral-400">
+                      {l.default_proposal_group ? proposalGroupLabel(l.default_proposal_group) : "Not on Proposal"}
+                    </p>
+                  </td>
                   <td className="px-4 py-2">
                     <EditLineQtyPrice
                       quantity={l.quantity}

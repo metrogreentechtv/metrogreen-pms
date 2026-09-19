@@ -702,6 +702,7 @@ export async function applyBomTemplate(quotationId: string, revisionId: string, 
         selling_line_total_php: sellingLineTotal,
         show_on_document: true,
         notes: line.notes,
+        proposal_group: line.default_proposal_group,
       })
       .select("id")
       .single();
