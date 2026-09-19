@@ -527,12 +527,19 @@ export type ProposalGroup =
   | "inverter"
   | "battery"
   | "mounting"
-  | "wiring"
-  // "dc_wire"/"ac_wire" are legacy values, superseded by the combined
-  // "wiring" group (2026-09-16 Proposal simplification) — kept here (and
+  | "ac_wire_protection"
+  | "dc_wire_protection"
+  | "conduits"
+  | "grounding"
+  | "monitoring_controls"
+  // "wiring"/"protection"/"dc_wire"/"ac_wire" are legacy values, superseded
+  // by the AC/DC-split "ac_wire_protection"/"dc_wire_protection" groups
+  // (2026-09-19 Proposal re-split, layered on top of the 2026-09-16
+  // simplification that had combined them into "wiring"). Kept here (and
   // in the DB check constraint) only so historical BOM lines already
-  // tagged with either one still type-check and keep rolling up
+  // tagged with one of these still type-check and keep rolling up
   // correctly; no longer offered as a choice for a new line.
+  | "wiring"
   | "dc_wire"
   | "ac_wire"
   | "protection"

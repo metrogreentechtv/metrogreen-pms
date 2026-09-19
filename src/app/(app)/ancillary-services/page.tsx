@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { canEditBom } from "@/lib/roles";
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
-import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
+import { SELECTABLE_PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { AncillaryService, EquipmentCategory } from "@/lib/types";
 import { createAncillaryService, setAncillaryServiceActive, updateAncillaryService } from "./actions";
 
@@ -95,7 +95,7 @@ export default async function AncillaryServicesPage() {
                   <Field label="Proposal grouping">
                     <Select name="default_proposal_group" defaultValue={s.default_proposal_group ?? ""}>
                       <option value="">Not on Proposal</option>
-                      {PROPOSAL_GROUPS.map((g) => (
+                      {SELECTABLE_PROPOSAL_GROUPS.map((g) => (
                         <option key={g.value} value={g.value}>
                           {g.label}
                         </option>
@@ -167,7 +167,7 @@ export default async function AncillaryServicesPage() {
             <Field label="Proposal grouping">
               <Select name="default_proposal_group" defaultValue="additional_works">
                 <option value="">Not on Proposal</option>
-                {PROPOSAL_GROUPS.map((g) => (
+                {SELECTABLE_PROPOSAL_GROUPS.map((g) => (
                   <option key={g.value} value={g.value}>
                     {g.label}
                   </option>

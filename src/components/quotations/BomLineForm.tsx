@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { formatPhp, formatPct } from "@/lib/format";
-import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
+import { SELECTABLE_PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { EquipmentCategory, EquipmentCurrentPriceView, Supplier } from "@/lib/types";
 
 export function BomLineForm({
@@ -181,7 +181,7 @@ export function BomLineForm({
       >
         <Select name="proposal_group" defaultValue="">
           <option value="">Not on Proposal</option>
-          {PROPOSAL_GROUPS.map((g) => (
+          {SELECTABLE_PROPOSAL_GROUPS.map((g) => (
             <option key={g.value} value={g.value}>
               {g.label} {g.mode === "lot" ? "(shown as 1 lot)" : ""}
             </option>

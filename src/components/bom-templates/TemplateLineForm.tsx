@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { formatPhp } from "@/lib/format";
-import { PROPOSAL_GROUPS } from "@/lib/proposal-bom";
+import { SELECTABLE_PROPOSAL_GROUPS } from "@/lib/proposal-bom";
 import type { EquipmentCategory, EquipmentCurrentPriceView } from "@/lib/types";
 
 export function TemplateLineForm({
@@ -138,7 +138,7 @@ export function TemplateLineForm({
       <Field label="Proposal grouping" hint="Which section of the Proposal document this line rolls into when the template is applied">
         <Select name="default_proposal_group" defaultValue="">
           <option value="">Not on Proposal</option>
-          {PROPOSAL_GROUPS.map((g) => (
+          {SELECTABLE_PROPOSAL_GROUPS.map((g) => (
             <option key={g.value} value={g.value}>
               {g.label}
             </option>
