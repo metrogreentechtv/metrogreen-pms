@@ -438,16 +438,25 @@ export interface QuotationRevision {
 
 export interface RevisionConfiguration {
   revision_id: string;
+  /** Legacy catalog-linked selection — kept for older revisions built with the dropdown. Not written by new revisions; see module_name. */
   module_equipment_id: string | null;
+  /** Free-typed module/panel description (2026-09-19 simplification — System Design no longer offers a catalog dropdown here). */
+  module_name: string | null;
   module_quantity: number | null;
   dc_capacity_kwp: number | null;
   modules_per_string: number | null;
   string_count: number | null;
+  /** Legacy catalog-linked selection — kept for older revisions built with the dropdown. Not written by new revisions; see inverter_name. */
   inverter_equipment_id: string | null;
+  /** Free-typed inverter description (2026-09-19 simplification). */
+  inverter_name: string | null;
   inverter_quantity: number | null;
   inverter_ac_kw_total: number | null;
   dc_ac_ratio: number | null;
+  /** Legacy catalog-linked selection — kept for older revisions built with the dropdown. Not written by new revisions; see battery_name. */
   battery_equipment_id: string | null;
+  /** Free-typed battery description (2026-09-19 simplification). */
+  battery_name: string | null;
   battery_quantity: number | null;
   battery_nameplate_kwh_total: number | null;
   battery_usable_kwh_total: number | null;

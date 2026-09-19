@@ -140,12 +140,25 @@ const CONFIGURATION_NUMBER_FIELDS = [
 ] as const;
 
 const CONFIGURATION_TEXT_FIELDS = [
+  // module_name/inverter_name/battery_name are free-typed (2026-09-19 —
+  // System Design no longer offers a catalog dropdown for these). The
+  // *_equipment_id fields are kept in this list only so an older
+  // integration or a future picker could still set them; the current form
+  // never submits them, so they stay null on new revisions.
   "module_equipment_id",
+  "module_name",
   "inverter_equipment_id",
+  "inverter_name",
   "battery_equipment_id",
+  "battery_name",
   "mounting_type_id",
   "mounting_type",
   "mounting_notes",
+  // monitoring_system/protection_notes/bos_notes are no longer on the
+  // System Design form (2026-09-19) — Joel wants Protection/BOS to live on
+  // the BOQ tab instead, as priced line items. Kept here/in the DB for any
+  // older revision still carrying a value, and in case a BOQ-side feature
+  // wants to write them later.
   "monitoring_system",
   "protection_notes",
   "bos_notes",
@@ -349,6 +362,15 @@ export async function recalculateEngineering(quotationId: string, revisionId: st
     annualConsumption = consumptionSummary?.annualised_kwh ?? null;
   }
 
+  // Required-roof-area is only computable when the module is linked to a
+  // catalog item with a known per-panel area (module_area_sqm). Since the
+  // System Design tab no longer offers a catalog dropdown for Module
+  // (2026-09-19 — free text instead, per Joel's request), cfg.module_equipment_id
+  // is null on every revision created going forward, so this simply stays
+  // skipped and "Required roof area" reads "—" for those revisions — same
+  // as it already did whenever the dropdown was left blank. Older revisions
+  // that still carry a module_equipment_id from before this change keep
+  // computing it as before.
   if (cfg.module_equipment_id) {
     const { data: moduleEq } = await supabase
       .from("equipment")

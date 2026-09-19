@@ -1,8 +1,6 @@
 import { Button, Card, CardHeader, Field, Input, Select, Textarea } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
 import type {
-  Equipment,
-  EquipmentCurrentPriceView,
   MountingType,
   RevisionConfiguration,
   RevisionCosting,
@@ -12,18 +10,12 @@ import type {
 
 export function ConfigurationForm({
   cfg,
-  modules,
-  inverters,
-  batteries,
   mountingTypes,
   editable,
   action,
   recalcAction,
 }: {
   cfg: RevisionConfiguration;
-  modules: EquipmentCurrentPriceView[];
-  inverters: EquipmentCurrentPriceView[];
-  batteries: EquipmentCurrentPriceView[];
   mountingTypes: MountingType[];
   editable: boolean;
   action: (formData: FormData) => Promise<void>;
@@ -38,20 +30,13 @@ export function ConfigurationForm({
     <Card>
       <CardHeader
         title="System configuration"
-        subtitle="Drives the energy, savings, and payback estimates"
+        subtitle="Freely-designed system spec — recommend it off Load & Sizing, or type in whatever the site calls for. Drives the energy, savings, and payback estimates."
       />
       {editable ? (
         <form action={action} className="space-y-4 px-5 py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Module">
-              <Select name="module_equipment_id" defaultValue={cfg.module_equipment_id ?? ""}>
-                <option value="">—</option>
-                {modules.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.description} ({m.watt_peak} Wp)
-                  </option>
-                ))}
-              </Select>
+            <Field label="Module" hint="Free text — brand/model, e.g. Jinko 585W Bifacial">
+              <Input name="module_name" defaultValue={cfg.module_name ?? ""} />
             </Field>
             <Field label="Module quantity">
               <Input name="module_quantity" type="number" defaultValue={cfg.module_quantity ?? ""} />
@@ -62,15 +47,8 @@ export function ConfigurationForm({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Inverter">
-              <Select name="inverter_equipment_id" defaultValue={cfg.inverter_equipment_id ?? ""}>
-                <option value="">—</option>
-                {inverters.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.description} ({m.inverter_ac_kw} kW)
-                  </option>
-                ))}
-              </Select>
+            <Field label="Inverter" hint="Free text — brand/model">
+              <Input name="inverter_name" defaultValue={cfg.inverter_name ?? ""} />
             </Field>
             <Field label="Inverter quantity">
               <Input name="inverter_quantity" type="number" defaultValue={cfg.inverter_quantity ?? ""} />
@@ -86,15 +64,8 @@ export function ConfigurationForm({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Battery">
-              <Select name="battery_equipment_id" defaultValue={cfg.battery_equipment_id ?? ""}>
-                <option value="">— (on-grid, no storage)</option>
-                {batteries.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.description} ({m.battery_usable_kwh} kWh usable)
-                  </option>
-                ))}
-              </Select>
+            <Field label="Battery" hint="Free text — leave blank for on-grid, no storage">
+              <Input name="battery_name" defaultValue={cfg.battery_name ?? ""} />
             </Field>
             <Field label="Battery quantity">
               <Input name="battery_quantity" type="number" defaultValue={cfg.battery_quantity ?? ""} />
@@ -128,19 +99,6 @@ export function ConfigurationForm({
                   </option>
                 ))}
               </Select>
-            </Field>
-          </div>
-
-          <Field label="Monitoring system">
-            <Input name="monitoring_system" defaultValue={cfg.monitoring_system ?? ""} />
-          </Field>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Protection notes">
-              <Textarea name="protection_notes" rows={2} defaultValue={cfg.protection_notes ?? ""} />
-            </Field>
-            <Field label="BOS / accessory notes">
-              <Textarea name="bos_notes" rows={2} defaultValue={cfg.bos_notes ?? ""} />
             </Field>
           </div>
 

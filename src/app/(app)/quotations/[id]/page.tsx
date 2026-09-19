@@ -197,13 +197,6 @@ export default async function QuotationDetailPage({
   const bomEditable = isCurrentRevision && isDraft && canEditBom(roles);
   const costingEditable = isCurrentRevision && isDraft && showCost;
 
-  // Sourced from the Main Materials inventory categories, regardless of
-  // quantity on hand (no quantity_on_hand filter here) — matches
-  // equipment/page.tsx's MAIN_MATERIAL_CODES grouping.
-  const modules = equipmentList.filter((e) => e.category_code === "solar_panels");
-  const inverters = equipmentList.filter((e) => e.category_code === "inverters");
-  const batteries = equipmentList.filter((e) => e.category_code === "batteries");
-
   const boundChangeStatus = changeStatus.bind(null, q.id, selectedRevision.id);
   const boundOverrideMargin = overrideMargin.bind(null, q.id, selectedRevision.id);
   const boundCreateRevision = createRevision.bind(null, q.id);
@@ -274,9 +267,6 @@ export default async function QuotationDetailPage({
             design={
               <ConfigurationForm
                 cfg={configuration}
-                modules={modules}
-                inverters={inverters}
-                batteries={batteries}
                 mountingTypes={mountingTypes}
                 editable={bomEditable}
                 action={boundUpdateConfig}
