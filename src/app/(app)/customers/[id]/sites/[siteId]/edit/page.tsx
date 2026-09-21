@@ -85,6 +85,25 @@ export default async function EditSitePage({
             <Input name="distribution_utility" defaultValue={s.distribution_utility ?? ""} />
           </Field>
 
+          <Field label="Google Maps link">
+            <Input
+              name="google_maps_url"
+              type="url"
+              placeholder="Paste the site's Google Maps link here"
+              defaultValue={s.google_maps_url ?? ""}
+            />
+          </Field>
+          {s.google_maps_url && (
+            <a
+              href={s.google_maps_url}
+              target="_blank"
+              rel="noreferrer"
+              className="-mt-2 block text-xs text-brand-700 hover:underline"
+            >
+              Open in Google Maps ↗
+            </a>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Blended retail rate (₱/kWh)">
               <Input
@@ -113,6 +132,57 @@ export default async function EditSitePage({
             />
             Net-metering eligible
           </label>
+
+          <div className="border-t border-black/5 pt-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Site &amp; roof details — these show on the project&apos;s Site information card once a
+              quotation from this site is converted to a project
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Roof type">
+                <Input name="roof_type" placeholder="e.g. Concrete slab, metal sheet" defaultValue={s.roof_type ?? ""} />
+              </Field>
+              <Field label="Roof material">
+                <Input name="roof_material" placeholder="e.g. Corrugated GI sheet" defaultValue={s.roof_material ?? ""} />
+              </Field>
+              <Field label="Orientation (degrees)">
+                <Input
+                  name="roof_orientation_deg"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="360"
+                  defaultValue={s.roof_orientation_deg ?? ""}
+                />
+              </Field>
+              <Field label="Tilt (degrees)">
+                <Input
+                  name="roof_tilt_deg"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="90"
+                  defaultValue={s.roof_tilt_deg ?? ""}
+                />
+              </Field>
+              <Field label="Available area (sqm)">
+                <Input
+                  name="available_area_sqm"
+                  type="number"
+                  step="0.1"
+                  defaultValue={s.available_area_sqm ?? ""}
+                />
+              </Field>
+              <Field label="Main breaker (A)">
+                <Input
+                  name="main_breaker_amps"
+                  type="number"
+                  step="1"
+                  defaultValue={s.main_breaker_amps ?? ""}
+                />
+              </Field>
+            </div>
+          </div>
 
           <Field label="Notes">
             <Textarea name="notes" rows={3} defaultValue={s.notes ?? ""} />

@@ -137,6 +137,19 @@ export async function createSite(customerId: string, formData: FormData) {
     peak_sun_hours_per_day: formData.get("peak_sun_hours_per_day")
       ? Number(formData.get("peak_sun_hours_per_day"))
       : null,
+    roof_type: String(formData.get("roof_type") ?? "").trim() || null,
+    roof_material: String(formData.get("roof_material") ?? "").trim() || null,
+    roof_orientation_deg: formData.get("roof_orientation_deg")
+      ? Number(formData.get("roof_orientation_deg"))
+      : null,
+    roof_tilt_deg: formData.get("roof_tilt_deg") ? Number(formData.get("roof_tilt_deg")) : null,
+    available_area_sqm: formData.get("available_area_sqm")
+      ? Number(formData.get("available_area_sqm"))
+      : null,
+    main_breaker_amps: formData.get("main_breaker_amps")
+      ? Number(formData.get("main_breaker_amps"))
+      : null,
+    google_maps_url: String(formData.get("google_maps_url") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,
     created_by: user.id,
   };
@@ -172,6 +185,19 @@ export async function updateSite(siteId: string, customerId: string, formData: F
     peak_sun_hours_per_day: formData.get("peak_sun_hours_per_day")
       ? Number(formData.get("peak_sun_hours_per_day"))
       : null,
+    roof_type: String(formData.get("roof_type") ?? "").trim() || null,
+    roof_material: String(formData.get("roof_material") ?? "").trim() || null,
+    roof_orientation_deg: formData.get("roof_orientation_deg")
+      ? Number(formData.get("roof_orientation_deg"))
+      : null,
+    roof_tilt_deg: formData.get("roof_tilt_deg") ? Number(formData.get("roof_tilt_deg")) : null,
+    available_area_sqm: formData.get("available_area_sqm")
+      ? Number(formData.get("available_area_sqm"))
+      : null,
+    main_breaker_amps: formData.get("main_breaker_amps")
+      ? Number(formData.get("main_breaker_amps"))
+      : null,
+    google_maps_url: String(formData.get("google_maps_url") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,
   };
 

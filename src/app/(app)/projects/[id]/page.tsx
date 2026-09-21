@@ -163,6 +163,16 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                   <>
                     <p className="text-sm font-medium text-neutral-900">{p.sites.site_name}</p>
                     <p>{[p.sites.address, p.sites.city, p.sites.province].filter(Boolean).join(", ") || "—"}</p>
+                    {p.sites.google_maps_url && (
+                      <a
+                        href={p.sites.google_maps_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block text-xs text-brand-700 hover:underline"
+                      >
+                        View on Google Maps ↗
+                      </a>
+                    )}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-black/5 pt-2">
                       <span>Roof type: {p.sites.roof_type ?? "—"}</span>
                       <span>Roof material: {p.sites.roof_material ?? "—"}</span>

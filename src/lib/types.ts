@@ -152,6 +152,7 @@ export interface Site {
   peak_sun_hours_per_day: number | null;
   irradiance_source: string | null;
   notes: string | null;
+  google_maps_url: string | null;
   deleted_at: string | null;
   created_by: string | null;
   created_at: string;

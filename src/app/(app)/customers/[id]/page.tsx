@@ -133,6 +133,16 @@ export default async function CustomerDetailPage({
                           ? `${billCount} electric bill${billCount === 1 ? "" : "s"} on file`
                           : "Upload electric bill"}
                       </Link>
+                      {s.google_maps_url && (
+                        <a
+                          href={s.google_maps_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-0.5 block text-xs text-brand-700 hover:underline"
+                        >
+                          View on Google Maps ↗
+                        </a>
+                      )}
                     </div>
                     <SiteRowActions
                       customerId={c.id}
@@ -175,6 +185,9 @@ export default async function CustomerDetailPage({
                     <Input name="province" />
                   </Field>
                 </div>
+                <Field label="Google Maps link">
+                  <Input name="google_maps_url" type="url" placeholder="Paste the site's Google Maps link here" />
+                </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Blended retail rate (₱/kWh)">
                     <Input name="blended_retail_rate_php_kwh" type="number" step="0.0001" />
@@ -187,6 +200,26 @@ export default async function CustomerDetailPage({
                   <input type="checkbox" name="net_metering_eligible" className="rounded" />
                   Net-metering eligible
                 </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Roof type">
+                    <Input name="roof_type" placeholder="e.g. Concrete slab, metal sheet" />
+                  </Field>
+                  <Field label="Roof material">
+                    <Input name="roof_material" placeholder="e.g. Corrugated GI sheet" />
+                  </Field>
+                  <Field label="Orientation (degrees)">
+                    <Input name="roof_orientation_deg" type="number" step="1" min="0" max="360" />
+                  </Field>
+                  <Field label="Tilt (degrees)">
+                    <Input name="roof_tilt_deg" type="number" step="1" min="0" max="90" />
+                  </Field>
+                  <Field label="Available area (sqm)">
+                    <Input name="available_area_sqm" type="number" step="0.1" />
+                  </Field>
+                  <Field label="Main breaker (A)">
+                    <Input name="main_breaker_amps" type="number" step="1" />
+                  </Field>
+                </div>
                 <div className="flex justify-end">
                   <Button type="submit" size="sm">Add site</Button>
                 </div>
