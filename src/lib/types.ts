@@ -171,6 +171,27 @@ export interface SiteConsumption {
   created_at: string;
 }
 
+/** A photo/PDF of a site's actual electric bill, uploaded from the
+ * customer's Sites card. The bytes live in Supabase Storage (bucket
+ * `site-bills`, private); this row is the metadata the app queries,
+ * lists, and joins against — `storage_path` is the key back to the file.
+ * `period_year`/`period_month` are optional tags so a bill can be matched
+ * to a specific month's row on the Load & Sizing tab, but aren't required
+ * (a bill can be uploaded before anyone's typed the numbers in). */
+export interface SiteBillUpload {
+  id: string;
+  site_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  period_year: number | null;
+  period_month: number | null;
+  notes: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 export interface Supplier {
   id: string;
   supplier_code: string;

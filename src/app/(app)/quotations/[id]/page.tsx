@@ -13,6 +13,7 @@ import { AddAncillaryServiceForm } from "@/components/quotations/AddAncillarySer
 import { ApplyTemplatePanel } from "@/components/quotations/ApplyTemplatePanel";
 import { QuotationTabs } from "@/components/quotations/QuotationTabs";
 import { LoadSizingPanel } from "@/components/quotations/LoadSizingPanel";
+import { fetchSiteBillsWithUrls } from "@/lib/site-bills";
 import { RoiPanel } from "@/components/quotations/RoiPanel";
 import { ProposalPanel } from "@/components/quotations/ProposalPanel";
 import {
@@ -190,6 +191,7 @@ export default async function QuotationDetailPage({
 
   const consumption = (consumptionRows ?? []) as SiteConsumption[];
   const summary = (summaryRow ?? null) as VSiteConsumptionSummary | null;
+  const siteBills = siteRow ? await fetchSiteBillsWithUrls(supabase, siteRow.id) : [];
 
   const showCost = canSeeCost(roles);
   const isCurrentRevision = selectedRevision.is_current;
@@ -254,6 +256,8 @@ export default async function QuotationDetailPage({
             load={
               <LoadSizingPanel
                 site={siteRow}
+                siteBills={siteBills}
+                customerId={q.customers?.id ?? null}
                 consumption={consumption}
                 summary={summary}
                 cfg={configuration}

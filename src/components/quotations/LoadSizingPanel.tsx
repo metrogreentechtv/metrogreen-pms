@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
 import { QuickSizingCalculator } from "@/components/quotations/QuickSizingCalculator";
+import { SiteBillList, type SiteBillUploadWithUrl } from "@/components/customers/SiteBillList";
 import type { RevisionConfiguration, Site, SiteConsumption, VSiteConsumptionSummary } from "@/lib/types";
 
 const MONTH_NAMES = [
@@ -9,6 +11,8 @@ const MONTH_NAMES = [
 
 export function LoadSizingPanel({
   site,
+  siteBills,
+  customerId,
   consumption,
   summary,
   cfg,
@@ -19,6 +23,11 @@ export function LoadSizingPanel({
   deleteConsumptionAction,
 }: {
   site: Site | null;
+  /** The site's uploaded electric bills (photo/PDF), for reference while
+   * filling in the consumption-history table below — read-only here,
+   * uploaded/managed from the site's own edit page on the customer record. */
+  siteBills: SiteBillUploadWithUrl[];
+  customerId: string | null;
   consumption: SiteConsumption[];
   summary: VSiteConsumptionSummary | null;
   cfg: RevisionConfiguration;
@@ -41,6 +50,27 @@ export function LoadSizingPanel({
 
       {site && (
         <>
+          <Card>
+            <CardHeader
+              title="Electric bills on file"
+              subtitle="Uploaded from the site's record on the customer page — open one to check the actual figures while filling in the table below"
+              action={
+                customerId && (
+                  <Link
+                    href={`/customers/${customerId}/sites/${site.id}/edit#bills`}
+                    className="text-xs font-medium text-brand-700 hover:underline"
+                  >
+                    Upload / manage bills
+                  </Link>
+                )
+              }
+            />
+            <SiteBillList
+              bills={siteBills}
+              emptyLabel="No electric bills uploaded for this site yet — upload one from the customer's Sites card, or the link above."
+            />
+          </Card>
+
           <QuickSizingCalculator
             defaultRatePhpPerKwh={site.blended_retail_rate_php_kwh ?? summary?.derived_blended_rate_php_kwh ?? null}
             defaultPeakSunHours={site.peak_sun_hours_per_day}

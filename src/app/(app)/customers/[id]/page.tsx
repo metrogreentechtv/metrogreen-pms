@@ -24,6 +24,7 @@ export default async function CustomerDetailPage({
         .eq("customer_id", params.id)
         .is("deleted_at", null)
         .order("created_at"),
+      // (bill counts queried separately below, once site ids are known)
       supabase
         .from("contacts")
         .select("*")
@@ -43,6 +44,21 @@ export default async function CustomerDetailPage({
   const siteList = (sites ?? []) as Site[];
   const contactList = (contacts ?? []) as Contact[];
   const quoteList = (quotations ?? []) as VQuotationList[];
+
+  // One extra query for the bill count per site — a per-row count(*) join
+  // isn't expressible in a single PostgREST select the way this app's
+  // other list queries are, and this is a handful of rows at most, so a
+  // second small query is simpler than a view for it.
+  const billCountBySite = new Map<string, number>();
+  if (siteList.length > 0) {
+    const { data: billRows } = await supabase
+      .from("site_bill_uploads")
+      .select("site_id")
+      .in("site_id", siteList.map((s) => s.id));
+    for (const row of billRows ?? []) {
+      billCountBySite.set(row.site_id, (billCountBySite.get(row.site_id) ?? 0) + 1);
+    }
+  }
 
   const boundCreateSite = createSite.bind(null, c.id);
   const boundCreateContact = createContact.bind(null, c.id);
@@ -100,22 +116,33 @@ export default async function CustomerDetailPage({
           <Card>
             <CardHeader title="Sites" subtitle="Installation locations for this customer" />
             <div className="divide-y divide-black/5">
-              {siteList.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                  <div>
-                    <p className="font-medium text-neutral-900">{s.site_name}</p>
-                    <p className="text-xs text-neutral-500">
-                      {[s.address, s.city, s.province].filter(Boolean).join(", ") || "No address on file"}
-                    </p>
+              {siteList.map((s) => {
+                const billCount = billCountBySite.get(s.id) ?? 0;
+                return (
+                  <div key={s.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                    <div>
+                      <p className="font-medium text-neutral-900">{s.site_name}</p>
+                      <p className="text-xs text-neutral-500">
+                        {[s.address, s.city, s.province].filter(Boolean).join(", ") || "No address on file"}
+                      </p>
+                      <Link
+                        href={`/customers/${c.id}/sites/${s.id}/edit#bills`}
+                        className="mt-0.5 inline-block text-xs text-brand-700 hover:underline"
+                      >
+                        {billCount > 0
+                          ? `${billCount} electric bill${billCount === 1 ? "" : "s"} on file`
+                          : "Upload electric bill"}
+                      </Link>
+                    </div>
+                    <SiteRowActions
+                      customerId={c.id}
+                      siteId={s.id}
+                      siteName={s.site_name}
+                      deleteAction={deleteSite.bind(null, s.id, c.id)}
+                    />
                   </div>
-                  <SiteRowActions
-                    customerId={c.id}
-                    siteId={s.id}
-                    siteName={s.site_name}
-                    deleteAction={deleteSite.bind(null, s.id, c.id)}
-                  />
-                </div>
-              ))}
+                );
+              })}
               {siteList.length === 0 && (
                 <div className="px-5 py-4 text-sm text-neutral-500">No sites yet.</div>
               )}

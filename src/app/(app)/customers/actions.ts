@@ -210,6 +210,122 @@ export async function deleteSite(siteId: string, customerId: string, _formData: 
   revalidatePath(`/customers/${customerId}`);
 }
 
+// Bills are accepted as a photo or a scanned/exported PDF of the actual
+// utility bill — kept in sync with the storage.buckets row's own
+// file_size_limit/allowed_mime_types (migration
+// site_bill_uploads_and_storage_bucket), so a rejected upload fails with a
+// clear message here instead of an opaque Storage error.
+const MAX_BILL_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+const ALLOWED_BILL_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "application/pdf",
+]);
+
+export async function uploadSiteBill(siteId: string, customerId: string, formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't upload bills.");
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Choose a bill file first.");
+  }
+  if (file.size > MAX_BILL_SIZE_BYTES) {
+    throw new Error("That file is larger than 15 MB — compress or split it before uploading.");
+  }
+  if (!ALLOWED_BILL_MIME_TYPES.has(file.type)) {
+    throw new Error("Only JPG, PNG, WEBP, HEIC, or PDF files are accepted for a bill upload.");
+  }
+
+  const periodYear = formData.get("period_year") ? Number(formData.get("period_year")) : null;
+  const periodMonth = formData.get("period_month") ? Number(formData.get("period_month")) : null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  // Prefix with the site id so every bill for a site sorts/lists together
+  // in Storage, and a timestamp so two uploads with the same original
+  // filename never collide.
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const storagePath = `${siteId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("site-bills")
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
+  if (uploadError) {
+    throw new Error(`Could not upload the bill file: ${uploadError.message}`);
+  }
+
+  const { error: insertError } = await supabase.from("site_bill_uploads").insert({
+    site_id: siteId,
+    storage_path: storagePath,
+    file_name: file.name,
+    mime_type: file.type,
+    size_bytes: file.size,
+    period_year: periodYear,
+    period_month: periodMonth,
+    notes,
+    uploaded_by: user.id,
+  });
+  if (insertError) {
+    // Don't leave an orphaned object in Storage that nothing lists or can
+    // ever delete through the app if the metadata row fails to save.
+    await supabase.storage.from("site-bills").remove([storagePath]);
+    throw new Error(`Could not save the bill record: ${insertError.message}`);
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath(`/customers/${customerId}/sites/${siteId}/edit`);
+}
+
+// Hard delete, unlike sites/customers/equipment — a bill upload is a
+// supporting document referenced by nothing else in the schema (no BOM
+// line, revision, or project points at it), so there's no locked
+// historical record at risk the way those soft-deleted rows carry.
+// Param order (siteId, customerId, billId) — not billId first — is
+// deliberate: it's bound at the page level as
+// `deleteSiteBill.bind(null, site.id, customerId)`, leaving `(billId,
+// formData)` for the list component to bind per row, same convention
+// BomTable/deleteBomLine already use for a delete button inside a `.map()`.
+export async function deleteSiteBill(
+  siteId: string,
+  customerId: string,
+  billId: string,
+  _formData: FormData
+) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't delete bill uploads.");
+  }
+
+  const { data: bill, error: fetchError } = await supabase
+    .from("site_bill_uploads")
+    .select("storage_path")
+    .eq("id", billId)
+    .maybeSingle();
+  if (fetchError) {
+    throw new Error(`Could not look up that bill: ${fetchError.message}`);
+  }
+
+  const { error: deleteRowError } = await supabase.from("site_bill_uploads").delete().eq("id", billId);
+  if (deleteRowError) {
+    throw new Error(`Could not delete the bill record: ${deleteRowError.message}`);
+  }
+
+  if (bill?.storage_path) {
+    await supabase.storage.from("site-bills").remove([bill.storage_path]);
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath(`/customers/${customerId}/sites/${siteId}/edit`);
+}
+
 export async function createContact(customerId: string, formData: FormData) {
   const supabase = await createClient();
 
