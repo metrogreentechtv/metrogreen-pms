@@ -86,6 +86,17 @@ export function IconBomTemplates({ className }: IconProps) {
   );
 }
 
+export function IconEquipmentCategories({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <rect x="3" y="3" width="7" height="7" rx="1.2" />
+      <rect x="14" y="3" width="7" height="7" rx="1.2" />
+      <rect x="3" y="14" width="7" height="7" rx="1.2" />
+      <rect x="14" y="14" width="7" height="7" rx="1.2" />
+    </svg>
+  );
+}
+
 export function IconMountingTypes({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden>

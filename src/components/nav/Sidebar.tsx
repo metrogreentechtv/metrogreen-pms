@@ -13,6 +13,7 @@ import {
   IconCustomers,
   IconDashboard,
   IconEquipment,
+  IconEquipmentCategories,
   IconMountingTypes,
   IconProjectManagement,
   IconProjects,
@@ -59,6 +60,12 @@ const NAV: NavGroup[] = [
     label: "Inventory",
     items: [
       { href: "/equipment", label: "Equipment", icon: IconEquipment, roles: null },
+      {
+        href: "/equipment-categories",
+        label: "Equipment Categories",
+        icon: IconEquipmentCategories,
+        roles: ["administrator", "engineer"] as AppRole[],
+      },
       {
         href: "/bom-templates",
         label: "BOM Templates",
