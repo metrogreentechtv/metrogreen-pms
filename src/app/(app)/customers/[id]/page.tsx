@@ -5,7 +5,8 @@ import { Badge, Card, CardHeader, EmptyState, Field, Input, Select, Button, Link
 import { QuotationStatusBadge } from "@/components/quotations/StatusBadge";
 import { formatDate, formatPhp, humanize } from "@/lib/format";
 import type { Contact, Customer, Site, VQuotationList } from "@/lib/types";
-import { createContact, createSite } from "../actions";
+import { createContact, createSite, deleteSite } from "../actions";
+import { SiteRowActions } from "@/components/customers/SiteRowActions";
 
 export default async function CustomerDetailPage({
   params,
@@ -100,11 +101,19 @@ export default async function CustomerDetailPage({
             <CardHeader title="Sites" subtitle="Installation locations for this customer" />
             <div className="divide-y divide-black/5">
               {siteList.map((s) => (
-                <div key={s.id} className="px-5 py-3 text-sm">
-                  <p className="font-medium text-neutral-900">{s.site_name}</p>
-                  <p className="text-xs text-neutral-500">
-                    {[s.address, s.city, s.province].filter(Boolean).join(", ") || "No address on file"}
-                  </p>
+                <div key={s.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div>
+                    <p className="font-medium text-neutral-900">{s.site_name}</p>
+                    <p className="text-xs text-neutral-500">
+                      {[s.address, s.city, s.province].filter(Boolean).join(", ") || "No address on file"}
+                    </p>
+                  </div>
+                  <SiteRowActions
+                    customerId={c.id}
+                    siteId={s.id}
+                    siteName={s.site_name}
+                    deleteAction={deleteSite.bind(null, s.id, c.id)}
+                  />
                 </div>
               ))}
               {siteList.length === 0 && (

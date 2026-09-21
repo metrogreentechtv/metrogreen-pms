@@ -149,6 +149,67 @@ export async function createSite(customerId: string, formData: FormData) {
   revalidatePath(`/customers/${customerId}`);
 }
 
+export async function updateSite(siteId: string, customerId: string, formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't edit sites.");
+  }
+
+  const payload = {
+    site_name: String(formData.get("site_name") ?? "").trim(),
+    address: String(formData.get("address") ?? "").trim() || null,
+    city: String(formData.get("city") ?? "").trim() || null,
+    province: String(formData.get("province") ?? "").trim() || null,
+    service_entrance: (String(formData.get("service_entrance") ?? "") ||
+      null) as ServiceEntrance | null,
+    distribution_utility: String(formData.get("distribution_utility") ?? "").trim() || null,
+    blended_retail_rate_php_kwh: formData.get("blended_retail_rate_php_kwh")
+      ? Number(formData.get("blended_retail_rate_php_kwh"))
+      : null,
+    net_metering_eligible: formData.get("net_metering_eligible") === "on",
+    peak_sun_hours_per_day: formData.get("peak_sun_hours_per_day")
+      ? Number(formData.get("peak_sun_hours_per_day"))
+      : null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  };
+
+  const { error } = await supabase.from("sites").update(payload).eq("id", siteId);
+  if (error) {
+    throw new Error(`Could not update site: ${error.message}`);
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+  redirect(`/customers/${customerId}`);
+}
+
+// Soft delete: sites are referenced by quotations.site_id, projects.site_id,
+// and site_consumption.site_id, so a hard DELETE would fail on (or silently
+// orphan) any of those once a site has real history — same "never rewrite
+// historical/locked data" pattern used for customers/equipment elsewhere in
+// this app. `sites` only has `deleted_at` (no separate `is_active` column,
+// unlike `customers`/`equipment`) — the site list and the `sites_read` RLS
+// policy both already filter on `deleted_at is null`.
+export async function deleteSite(siteId: string, customerId: string, _formData: FormData) {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!canWrite(user.roles)) {
+    throw new Error("Your role can't delete sites.");
+  }
+
+  const { error } = await supabase
+    .from("sites")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", siteId);
+  if (error) {
+    throw new Error(`Could not delete site: ${error.message}`);
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+}
+
 export async function createContact(customerId: string, formData: FormData) {
   const supabase = await createClient();
 
