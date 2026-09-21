@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
+import { Button, Card, CardHeader, Field, Input } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
 import { QuickSizingCalculator } from "@/components/quotations/QuickSizingCalculator";
+import { MonthlyUsageChart } from "@/components/quotations/MonthlyUsageChart";
+import { AddConsumptionForm } from "@/components/quotations/AddConsumptionForm";
 import { SiteBillList, type SiteBillUploadWithUrl } from "@/components/customers/SiteBillList";
 import type { RevisionConfiguration, Site, SiteConsumption, VSiteConsumptionSummary } from "@/lib/types";
 
@@ -38,6 +40,17 @@ export function LoadSizingPanel({
   deleteConsumptionAction: (id: string) => Promise<void>;
 }) {
   const thisYear = new Date().getFullYear();
+
+  // Cross-reference tagged bills against consumption rows sharing the same
+  // period, so the table below can show "bill on file" next to a month that
+  // has one — a cheap visual link between the two records without a schema
+  // change (bills aren't required to be tagged, so this is best-effort).
+  const billByPeriod = new Map<string, SiteBillUploadWithUrl>();
+  for (const b of siteBills) {
+    if (b.period_year && b.period_month) {
+      billByPeriod.set(`${b.period_year}-${b.period_month}`, b);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -93,6 +106,10 @@ export function LoadSizingPanel({
               />
             </div>
 
+            <div className="border-b border-black/5">
+              <MonthlyUsageChart consumption={consumption} />
+            </div>
+
             {consumption.length > 0 && (
               <div className="overflow-x-auto border-b border-black/5">
                 <table className="w-full text-left text-sm">
@@ -102,16 +119,33 @@ export function LoadSizingPanel({
                       <th className="px-5 py-2 font-medium">kWh</th>
                       <th className="px-5 py-2 font-medium">Bill</th>
                       <th className="px-5 py-2 font-medium">Peak demand</th>
+                      <th className="px-5 py-2 font-medium">Photo</th>
                       {editable && <th className="px-5 py-2" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5">
-                    {consumption.map((c) => (
+                    {consumption.map((c) => {
+                      const linkedBill = billByPeriod.get(`${c.period_year}-${c.period_month}`);
+                      return (
                       <tr key={c.id}>
                         <td className="px-5 py-2">{MONTH_NAMES[c.period_month - 1]} {c.period_year}</td>
                         <td className="px-5 py-2 tabular-nums">{formatNumber(c.kwh, 0)}</td>
                         <td className="px-5 py-2 tabular-nums">{c.bill_amount_php ? formatPhp(c.bill_amount_php) : "—"}</td>
                         <td className="px-5 py-2 tabular-nums">{c.peak_demand_kw ? `${formatNumber(c.peak_demand_kw, 1)} kW` : "—"}</td>
+                        <td className="px-5 py-2">
+                          {linkedBill?.signed_url ? (
+                            <a
+                              href={linkedBill.signed_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-medium text-brand-700 hover:underline"
+                            >
+                              View
+                            </a>
+                          ) : (
+                            <span className="text-xs text-neutral-300">—</span>
+                          )}
+                        </td>
                         {editable && (
                           <td className="px-5 py-2 text-right">
                             <form action={deleteConsumptionAction.bind(null, c.id)}>
@@ -122,37 +156,15 @@ export function LoadSizingPanel({
                           </td>
                         )}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
 
             {editable && (
-              <form action={addConsumptionAction} className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-6">
-                <Field label="Year">
-                  <Input name="period_year" type="number" defaultValue={thisYear} required />
-                </Field>
-                <Field label="Month">
-                  <Select name="period_month" required defaultValue={new Date().getMonth() + 1}>
-                    {MONTH_NAMES.map((m, i) => (
-                      <option key={m} value={i + 1}>{m}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="kWh">
-                  <Input name="kwh" type="number" step="0.01" required />
-                </Field>
-                <Field label="Bill (₱)">
-                  <Input name="bill_amount_php" type="number" step="0.01" />
-                </Field>
-                <Field label="Peak demand (kW)">
-                  <Input name="peak_demand_kw" type="number" step="0.01" />
-                </Field>
-                <div className="flex items-end">
-                  <Button type="submit" size="sm" className="w-full">Add / update</Button>
-                </div>
-              </form>
+              <AddConsumptionForm bills={siteBills} action={addConsumptionAction} defaultYear={thisYear} />
             )}
           </Card>
 
