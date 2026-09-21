@@ -26,8 +26,12 @@ export function SiteBillList({
   emptyLabel = "No bills uploaded yet.",
 }: {
   bills: SiteBillUploadWithUrl[];
-  /** Bound server action: (billId: string) => void. Omit to render read-only (no delete button) — used on the Load & Sizing tab, which only needs to reference the bills, not manage them. */
-  deleteAction?: (billId: string) => Promise<void>;
+  /** Bound server action, still expecting (billId, formData) — siteId/customerId
+   * are already bound in at the page. Each row then binds its own billId via
+   * `.bind(null, b.id)` below, leaving a plain (formData) => void form action.
+   * Omit to render read-only (no delete button) — used on the Load & Sizing
+   * tab, which only needs to reference the bills, not manage them. */
+  deleteAction?: (billId: string, formData: FormData) => Promise<void>;
   emptyLabel?: string;
 }) {
   if (bills.length === 0) {
