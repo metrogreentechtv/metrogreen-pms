@@ -50,6 +50,7 @@ import {
   addBomLine,
   addSiteConsumption,
   applyBomTemplate,
+  attachQuotationSite,
   changeStatus,
   createProjectFromRevision,
   createRevision,
@@ -57,6 +58,7 @@ import {
   deleteSiteConsumption,
   overrideMargin,
   recalculateEngineering,
+  saveBatchConsumption,
   updateBomLineProposalGroup,
   updateConfiguration,
   updateCosting,
@@ -193,6 +195,19 @@ export default async function QuotationDetailPage({
   const summary = (summaryRow ?? null) as VSiteConsumptionSummary | null;
   const siteBills = siteRow ? await fetchSiteBillsWithUrls(supabase, siteRow.id) : [];
 
+  // Only needed for the "attach a site" picker shown when this quotation
+  // has no site yet — cheap enough (a handful of rows per customer) to
+  // just fetch it unconditionally rather than branching the query.
+  const { data: customerSiteRows } = q.customers?.id
+    ? await supabase
+        .from("sites")
+        .select("*")
+        .eq("customer_id", q.customers.id)
+        .is("deleted_at", null)
+        .order("created_at")
+    : { data: [] };
+  const customerSites = (customerSiteRows ?? []) as Site[];
+
   const showCost = canSeeCost(roles);
   const isCurrentRevision = selectedRevision.is_current;
   const isDraft = selectedRevision.status === "draft";
@@ -216,6 +231,8 @@ export default async function QuotationDetailPage({
   const boundSiteSizing = siteRow ? updateSiteSizing.bind(null, q.id, siteRow.id) : async () => {};
   const boundAddConsumption = siteRow ? addSiteConsumption.bind(null, q.id, siteRow.id) : async () => {};
   const boundDeleteConsumption = deleteSiteConsumption.bind(null, q.id);
+  const boundAttachSite = attachQuotationSite.bind(null, q.id);
+  const boundBatchConsumption = siteRow ? saveBatchConsumption.bind(null, q.id, siteRow.id) : async () => {};
 
   return (
     <div className="space-y-6">
@@ -258,6 +275,8 @@ export default async function QuotationDetailPage({
                 site={siteRow}
                 siteBills={siteBills}
                 customerId={q.customers?.id ?? null}
+                customerSites={customerSites}
+                systemType={q.system_type ?? null}
                 consumption={consumption}
                 summary={summary}
                 cfg={configuration}
@@ -266,6 +285,8 @@ export default async function QuotationDetailPage({
                 criticalLoadAction={boundUpdateConfig}
                 addConsumptionAction={boundAddConsumption}
                 deleteConsumptionAction={boundDeleteConsumption}
+                attachSiteAction={boundAttachSite}
+                batchConsumptionAction={boundBatchConsumption}
               />
             }
             design={

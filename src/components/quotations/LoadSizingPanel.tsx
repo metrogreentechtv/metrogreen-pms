@@ -1,11 +1,19 @@
 import Link from "next/link";
-import { Button, Card, CardHeader, Field, Input } from "@/components/ui";
+import { Button, Card, CardHeader, Field, Input, Select } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
 import { QuickSizingCalculator } from "@/components/quotations/QuickSizingCalculator";
 import { MonthlyUsageChart } from "@/components/quotations/MonthlyUsageChart";
 import { AddConsumptionForm } from "@/components/quotations/AddConsumptionForm";
+import { ConsumptionDataEntry } from "@/components/quotations/ConsumptionDataEntry";
+import { RecommendedSystemCard } from "@/components/quotations/RecommendedSystemCard";
 import { SiteBillList, type SiteBillUploadWithUrl } from "@/components/customers/SiteBillList";
-import type { RevisionConfiguration, Site, SiteConsumption, VSiteConsumptionSummary } from "@/lib/types";
+import type {
+  RevisionConfiguration,
+  Site,
+  SiteConsumption,
+  SystemType,
+  VSiteConsumptionSummary,
+} from "@/lib/types";
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -15,6 +23,8 @@ export function LoadSizingPanel({
   site,
   siteBills,
   customerId,
+  customerSites,
+  systemType,
   consumption,
   summary,
   cfg,
@@ -23,6 +33,8 @@ export function LoadSizingPanel({
   criticalLoadAction,
   addConsumptionAction,
   deleteConsumptionAction,
+  attachSiteAction,
+  batchConsumptionAction,
 }: {
   site: Site | null;
   /** The site's uploaded electric bills (photo/PDF), for reference while
@@ -30,6 +42,12 @@ export function LoadSizingPanel({
    * uploaded/managed from the site's own edit page on the customer record. */
   siteBills: SiteBillUploadWithUrl[];
   customerId: string | null;
+  /** The customer's own sites, for the "attach a site" picker shown when
+   * this quotation doesn't have one yet — `site_id` can currently only be
+   * chosen at quotation-creation time, so a quotation created without one
+   * needs a way to fix that from here. */
+  customerSites: Site[];
+  systemType: SystemType | null;
   consumption: SiteConsumption[];
   summary: VSiteConsumptionSummary | null;
   cfg: RevisionConfiguration;
@@ -38,6 +56,8 @@ export function LoadSizingPanel({
   criticalLoadAction: (formData: FormData) => Promise<void>;
   addConsumptionAction: (formData: FormData) => Promise<void>;
   deleteConsumptionAction: (id: string) => Promise<void>;
+  attachSiteAction: (formData: FormData) => Promise<void>;
+  batchConsumptionAction: (formData: FormData) => Promise<void>;
 }) {
   const thisYear = new Date().getFullYear();
 
@@ -56,8 +76,37 @@ export function LoadSizingPanel({
     <div className="space-y-6">
       {!site && (
         <Card className="border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
-          This quotation has no site on file — attach one from the customer record to size the
-          system from actual consumption history.
+          <p className="mb-3">
+            This quotation has no site on file — attach one to size the system from actual
+            consumption history.
+          </p>
+          {customerSites.length > 0 ? (
+            <form action={attachSiteAction} className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[220px] flex-1">
+                <Field label="Site">
+                  <Select name="site_id" required defaultValue="">
+                    <option value="" disabled>
+                      Choose a site…
+                    </option>
+                    {customerSites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.site_name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <Button type="submit" size="sm">
+                Attach site
+              </Button>
+            </form>
+          ) : (
+            customerId && (
+              <Link href={`/customers/${customerId}`} className="font-medium underline">
+                This customer has no sites yet — add one on the customer record first
+              </Link>
+            )
+          )}
         </Card>
       )}
 
@@ -83,6 +132,16 @@ export function LoadSizingPanel({
               emptyLabel="No electric bills uploaded for this site yet — upload one from the customer's Sites card, or the link above."
             />
           </Card>
+
+          {editable && (
+            <ConsumptionDataEntry
+              action={batchConsumptionAction}
+              defaultRatePhpPerKwh={site.blended_retail_rate_php_kwh ?? summary?.derived_blended_rate_php_kwh ?? null}
+              defaultYear={thisYear}
+            />
+          )}
+
+          <RecommendedSystemCard summary={summary} site={site} systemType={systemType} cfg={cfg} />
 
           <QuickSizingCalculator
             defaultRatePhpPerKwh={site.blended_retail_rate_php_kwh ?? summary?.derived_blended_rate_php_kwh ?? null}

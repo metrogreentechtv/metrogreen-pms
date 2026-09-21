@@ -271,6 +271,103 @@ export async function addSiteConsumption(quotationId: string, siteId: string, fo
   revalidatePath(`/quotations/${quotationId}`);
 }
 
+/** Attaches a site to a quotation that doesn't have one yet (or swaps it) —
+ * `quotations.site_id` can currently only be set at creation time via the
+ * "+ New quotation" form's own dropdown; there was no way to fix a
+ * quotation created without one, which is exactly what left the Load &
+ * Sizing tab showing "no site on file" with no way out of it from there. */
+export async function attachQuotationSite(quotationId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const siteId = String(formData.get("site_id") ?? "").trim() || null;
+  if (!siteId) throw new Error("Choose a site to attach.");
+
+  const { error } = await supabase.from("quotations").update({ site_id: siteId }).eq("id", quotationId);
+  if (error) throw new Error(`Could not attach site: ${error.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
+/** Bulk consumption entry — "the data connection" on the Load & Sizing tab:
+ * a whole year's usage in one submit, as 12 monthly figures or a single
+ * yearly total, in kWh or ₱. Writes into the same `site_consumption` table
+ * (same upsert key) the single-month form and the Quick Sizing Calculator
+ * already use — no schema change, just a faster way in when a year's
+ * numbers are already on hand. An annual total has no seasonal profile to
+ * distribute it by, so it's split evenly across all 12 months — a flat
+ * estimate, not a curve; any individual month can still be corrected
+ * afterward from the table below. An amount-based mode (₱) needs a rate to
+ * convert to kWh, since `site_consumption.kwh` is the one column that's
+ * always required. */
+export async function saveBatchConsumption(quotationId: string, siteId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const mode = String(formData.get("mode") ?? "monthly_kwh");
+  const year = Number(formData.get("period_year"));
+  if (!year) throw new Error("Year is required.");
+
+  const isAmountMode = mode === "monthly_amount" || mode === "annual_amount";
+  const rateRaw = formData.get("rate_php_per_kwh");
+  const rate = rateRaw ? Number(rateRaw) : null;
+  if (isAmountMode && !(rate && rate > 0)) {
+    throw new Error("Enter an electricity rate (₱/kWh) to convert peso amounts into kWh.");
+  }
+
+  type Row = {
+    site_id: string;
+    period_year: number;
+    period_month: number;
+    kwh: number;
+    bill_amount_php: number | null;
+    notes: string | null;
+  };
+  const rows: Row[] = [];
+
+  if (mode === "monthly_kwh" || mode === "monthly_amount") {
+    for (let m = 1; m <= 12; m++) {
+      const raw = formData.get(`m${m}`);
+      const val = raw === null || raw === "" ? null : Number(raw);
+      if (val === null || !(val > 0)) continue;
+      rows.push({
+        site_id: siteId,
+        period_year: year,
+        period_month: m,
+        kwh: Math.round((isAmountMode ? val / (rate as number) : val) * 100) / 100,
+        bill_amount_php: isAmountMode ? val : null,
+        notes: "Bulk entry",
+      });
+    }
+    if (rows.length === 0) throw new Error("Enter at least one month's figure.");
+  } else if (mode === "annual_kwh" || mode === "annual_amount") {
+    const total = Number(formData.get("annual_total") ?? 0);
+    if (!(total > 0)) throw new Error("Enter a yearly total.");
+    const totalKwh = mode === "annual_amount" ? total / (rate as number) : total;
+    const totalBill = mode === "annual_amount" ? total : null;
+    const perMonthKwh = Math.round((totalKwh / 12) * 100) / 100;
+    const perMonthBill = totalBill != null ? Math.round((totalBill / 12) * 100) / 100 : null;
+    for (let m = 1; m <= 12; m++) {
+      rows.push({
+        site_id: siteId,
+        period_year: year,
+        period_month: m,
+        kwh: perMonthKwh,
+        bill_amount_php: perMonthBill,
+        notes: "Bulk entry — annual total split evenly across 12 months",
+      });
+    }
+  } else {
+    throw new Error("Unrecognized entry mode.");
+  }
+
+  const { error } = await supabase
+    .from("site_consumption")
+    .upsert(rows, { onConflict: "site_id,period_year,period_month" });
+
+  if (error) throw new Error(`Could not save consumption data: ${error.message}`);
+
+  revalidatePath(`/quotations/${quotationId}`);
+}
+
 export async function deleteSiteConsumption(quotationId: string, consumptionId: string) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("site_consumption").delete().eq("id", consumptionId);
