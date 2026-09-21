@@ -78,20 +78,41 @@ export async function deleteTemplate(templateId: string, _formData: FormData) {
   redirect("/bom-templates");
 }
 
+// The next free line_no for a template. Reads MAX(line_no) rather than
+// COUNT(*) of rows — deleteTemplateLine never renumbers the lines left
+// behind after a delete, so as soon as any line other than the very last
+// one is removed, COUNT(*) undercounts and the next insert collides with
+// a line_no a surviving row already has, violating
+// bom_template_lines_template_line_no_key. Same bug/fix shape as
+// nextBomLineNo() in quotations/actions.ts (see the handoff doc's
+// "BOM line-numbering bug fix" section) — found here while wiring up
+// the templates list's edit/delete row actions, fixed proactively before
+// Joel hit it the same way on a template.
+async function nextTemplateLineNo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  templateId: string
+) {
+  const { data } = await supabase
+    .from("bom_template_lines")
+    .select("line_no")
+    .eq("template_id", templateId)
+    .order("line_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.line_no ?? 0) + 1;
+}
+
 export async function addTemplateLine(templateId: string, formData: FormData) {
   const { supabase } = await requireTemplateEditor();
 
   const description = String(formData.get("description") ?? "").trim();
   if (!description) throw new Error("Describe the line item first.");
 
-  const { count } = await supabase
-    .from("bom_template_lines")
-    .select("id", { count: "exact", head: true })
-    .eq("template_id", templateId);
+  const lineNo = await nextTemplateLineNo(supabase, templateId);
 
   const payload = {
     template_id: templateId,
-    line_no: (count ?? 0) + 1,
+    line_no: lineNo,
     category_id: String(formData.get("category_id")),
     equipment_id: String(formData.get("equipment_id") ?? "") || null,
     is_major: formData.get("is_major") === "on",

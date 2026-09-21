@@ -5,7 +5,9 @@ import { getCurrentUser } from "@/lib/current-user";
 import { canEditBom } from "@/lib/roles";
 import { Badge, Card, EmptyState, LinkButton } from "@/components/ui";
 import { formatNumber, formatPhp } from "@/lib/format";
+import { BomTemplateRowActions } from "@/components/bom-templates/BomTemplateRowActions";
 import type { BomTemplate } from "@/lib/types";
+import { deleteTemplate } from "./actions";
 
 export default async function BomTemplatesPage() {
   const user = await getCurrentUser();
@@ -51,6 +53,7 @@ export default async function BomTemplatesPage() {
                 <th className="px-5 py-3 font-medium">Lines</th>
                 <th className="px-5 py-3 font-medium">Total cost</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
@@ -76,6 +79,13 @@ export default async function BomTemplatesPage() {
                   </td>
                   <td className="px-5 py-3">
                     <Badge tone={t.is_active ? "green" : "neutral"}>{t.is_active ? "Active" : "Inactive"}</Badge>
+                  </td>
+                  <td className="px-5 py-3">
+                    <BomTemplateRowActions
+                      templateId={t.id}
+                      templateName={t.name}
+                      deleteAction={deleteTemplate.bind(null, t.id)}
+                    />
                   </td>
                 </tr>
               ))}
