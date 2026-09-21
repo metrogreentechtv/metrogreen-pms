@@ -15,6 +15,30 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// The next free line_no for a revision's BOM. Used by every "add a BOM
+// line" path (manual add, ancillary service, apply-template) so a new
+// line never collides with an existing one. Deliberately reads the
+// current MAX(line_no) rather than COUNT(*) of rows: deleteBomLine never
+// renumbers the rows that are left behind, so as soon as any line other
+// than the very last one is removed, COUNT(*) undercounts and produces a
+// line_no that's already taken — that's what was throwing "duplicate key
+// value violates unique constraint revision_bom_lines_revision_id_line_no_key"
+// (a server-side exception on Joel's real build) whenever a line was
+// added after an earlier line had been deleted.
+async function nextBomLineNo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  revisionId: string
+) {
+  const { data } = await supabase
+    .from("revision_bom_lines")
+    .select("line_no")
+    .eq("revision_id", revisionId)
+    .order("line_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.line_no ?? 0) + 1;
+}
+
 export async function createQuotation(formData: FormData) {
   const { supabase } = await requireUser();
 
@@ -585,16 +609,13 @@ export async function addBomLine(quotationId: string, revisionId: string, formDa
   const unitCost = Number(formData.get("unit_cost_php") ?? 0);
   const markupRate = Number(formData.get("markup_rate") ?? 0) / 100;
 
-  const { count } = await supabase
-    .from("revision_bom_lines")
-    .select("id", { count: "exact", head: true })
-    .eq("revision_id", revisionId);
+  const lineNo = await nextBomLineNo(supabase, revisionId);
 
   const { data: line, error } = await supabase
     .from("revision_bom_lines")
     .insert({
       revision_id: revisionId,
-      line_no: (count ?? 0) + 1,
+      line_no: lineNo,
       category_id: String(formData.get("category_id")),
       equipment_id: String(formData.get("equipment_id") ?? "") || null,
       description: String(formData.get("description") ?? "").trim(),
@@ -666,16 +687,13 @@ export async function addAncillaryServiceLine(
   const rate = service.rate_php ?? 0;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  const { count } = await supabase
-    .from("revision_bom_lines")
-    .select("id", { count: "exact", head: true })
-    .eq("revision_id", revisionId);
+  const lineNo = await nextBomLineNo(supabase, revisionId);
 
   const { data: line, error } = await supabase
     .from("revision_bom_lines")
     .insert({
       revision_id: revisionId,
-      line_no: (count ?? 0) + 1,
+      line_no: lineNo,
       category_id: service.default_category_id,
       description: service.name,
       quantity,
@@ -754,11 +772,7 @@ export async function applyBomTemplate(quotationId: string, revisionId: string, 
   if (catalogError) throw new Error(`Could not load catalog pricing: ${catalogError.message}`);
   const catalogMap = new Map((catalogRows ?? []).map((r) => [r.id as string, r]));
 
-  const { count } = await supabase
-    .from("revision_bom_lines")
-    .select("id", { count: "exact", head: true })
-    .eq("revision_id", revisionId);
-  let nextLineNo = (count ?? 0) + 1;
+  let nextLineNo = await nextBomLineNo(supabase, revisionId);
 
   // Sequential on purpose (mirrors importCustomersCsv): a handful to a few
   // dozen lines per template, and each insert needs the previous line_no.
