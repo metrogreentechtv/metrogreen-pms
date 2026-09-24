@@ -17,13 +17,15 @@ import type {
 // A field-packet printout for whoever's executing the job on site — deliberately
 // narrower than the in-app project page. Per Joel's spec: no contract value, no
 // full Savings & ROI breakdown (NPV/IRR/LCOE/CO2/analysis horizon — see the
-// in-app "Savings & ROI" card for those), and the BOM shows MetroGreen's own
-// budget cost (what the job costs to build), never a customer-facing selling
-// price or margin. Annual savings (Yr 1) and Simple payback are the two
-// exceptions explicitly kept — system-performance figures an engineer may
-// reference on site, not profit figures. Shown to every role that can open a
-// project (no canSeeProjectFinancials gate), since nothing here reveals what
-// MetroGreen charges or earns.
+// in-app "Savings & ROI" card for those). Annual savings (Yr 1) and Simple
+// payback are the two exceptions explicitly kept — system-performance figures
+// an engineer may reference on site, not profit figures. The Bill of materials
+// table shows description and quantity only — no unit/line cost of any kind
+// (originally shown at MetroGreen's own budget cost; Joel asked to drop that
+// too on 2026-09-21, after the first draft made clear "no prices on BOM" meant
+// no prices at all, not just no selling price/margin). Shown to every role
+// that can open a project (no canSeeProjectFinancials gate), since nothing
+// here reveals what MetroGreen charges or earns.
 export default async function ProjectPrintPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
 
@@ -219,8 +221,6 @@ export default async function ProjectPrintPage({ params }: { params: { id: strin
               <tr>
                 <th className="py-1 font-medium">Description</th>
                 <th className="py-1 font-medium">Qty</th>
-                <th className="py-1 font-medium">Budget unit cost</th>
-                <th className="py-1 font-medium">Budget line cost</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -235,8 +235,6 @@ export default async function ProjectPrintPage({ params }: { params: { id: strin
                   <td className="py-1.5 tabular-nums">
                     {formatNumber(b.budget_quantity)} {b.unit}
                   </td>
-                  <td className="py-1.5 tabular-nums">{formatPhp(b.budget_unit_cost_php)}</td>
-                  <td className="py-1.5 tabular-nums">{formatPhp(b.budget_line_cost_php)}</td>
                 </tr>
               ))}
             </tbody>
@@ -247,8 +245,8 @@ export default async function ProjectPrintPage({ params }: { params: { id: strin
       </div>
 
       <p className="text-[11px] text-neutral-400">
-        For site execution use. Contract value and full financial/ROI figures are intentionally omitted from
-        this printout.
+        For site execution use. Contract value, full financial/ROI figures, and BOM pricing are intentionally
+        omitted from this printout.
       </p>
 
       <div className="print:hidden">
