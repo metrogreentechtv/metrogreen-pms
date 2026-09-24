@@ -133,6 +133,16 @@ export default async function EditSitePage({
             Net-metering eligible
           </label>
 
+          <Field label="Net-metering export/generation rate (₱/kWh)">
+            <Input
+              name="net_metering_export_rate_php_kwh"
+              type="number"
+              step="0.0001"
+              placeholder="Credit rate for exported kWh, if different from the retail rate above"
+              defaultValue={s.net_metering_export_rate_php_kwh ?? ""}
+            />
+          </Field>
+
           <div className="border-t border-black/5 pt-4">
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
               Site &amp; roof details — these show on the project&apos;s Site information card once a

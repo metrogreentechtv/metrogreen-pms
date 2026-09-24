@@ -9,6 +9,7 @@ const TABS = [
   { key: "pricing", label: "Pricing" },
   { key: "roi", label: "ROI" },
   { key: "proposal", label: "Proposal" },
+  { key: "longFormProposal", label: "Long Form Proposal" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -20,9 +21,10 @@ export function QuotationTabs({
   pricing,
   roi,
   proposal,
+  longFormProposal,
 }: Record<TabKey, ReactNode>) {
   const [active, setActive] = useState<TabKey>("load");
-  const panels: Record<TabKey, ReactNode> = { load, design, boq, pricing, roi, proposal };
+  const panels: Record<TabKey, ReactNode> = { load, design, boq, pricing, roi, proposal, longFormProposal };
 
   return (
     <div>

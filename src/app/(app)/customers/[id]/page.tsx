@@ -200,6 +200,14 @@ export default async function CustomerDetailPage({
                   <input type="checkbox" name="net_metering_eligible" className="rounded" />
                   Net-metering eligible
                 </label>
+                <Field label="Net-metering export/generation rate (₱/kWh)">
+                  <Input
+                    name="net_metering_export_rate_php_kwh"
+                    type="number"
+                    step="0.0001"
+                    placeholder="Credit rate for exported kWh, if different from the retail rate above"
+                  />
+                </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Roof type">
                     <Input name="roof_type" placeholder="e.g. Concrete slab, metal sheet" />

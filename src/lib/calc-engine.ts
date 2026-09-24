@@ -73,6 +73,15 @@ export interface CalcOutputs {
   irrPct: number | null;
   lcoePhpPerKwh: number | null;
   requiredAreaSqm: number | null;
+  // Year-by-year net cash flow, PHP. Index 0 is year 0 (the negative
+  // upfront investment, -totalContractPricePhp); index N is year N's
+  // savings minus O&M minus any inverter replacement that year. Length is
+  // settings.analysisYears + 1. Was already computed internally to feed
+  // NPV/IRR below but never exposed — added so the Long Form Proposal's
+  // Net Financial Impact charts (cumulative savings with a payback
+  // marker, annual savings with the initial investment marked) can read
+  // it directly instead of recomputing the same series a second time.
+  yearlyCashFlowsPhp: number[];
 }
 
 export function computeEngineering(
@@ -193,6 +202,7 @@ export function computeEngineering(
     irrPct: irrPct != null ? round(irrPct, 4) : null,
     lcoePhpPerKwh: lcoePhpPerKwh != null ? round(lcoePhpPerKwh, 4) : null,
     requiredAreaSqm: requiredAreaSqm != null ? round(requiredAreaSqm, 1) : null,
+    yearlyCashFlowsPhp: cashFlows.map((cf) => round(cf)),
   };
 }
 

@@ -16,6 +16,7 @@ import { LoadSizingPanel } from "@/components/quotations/LoadSizingPanel";
 import { fetchSiteBillsWithUrls } from "@/lib/site-bills";
 import { RoiPanel } from "@/components/quotations/RoiPanel";
 import { ProposalPanel } from "@/components/quotations/ProposalPanel";
+import { LongFormProposalPanel } from "@/components/quotations/LongFormProposalPanel";
 import {
   ConfigurationForm,
   CostingForm,
@@ -367,6 +368,15 @@ export default async function QuotationDetailPage({
                 bankAccountName={bankValue("company.bank_account_name")}
                 bankAccountNumber={bankValue("company.bank_account_number")}
                 bankBranch={bankValue("company.bank_branch")}
+              />
+            }
+            longFormProposal={
+              <LongFormProposalPanel
+                cfg={configuration}
+                pricing={pricingRow}
+                site={siteRow}
+                bom={bom}
+                quotationId={q.id}
               />
             }
           />

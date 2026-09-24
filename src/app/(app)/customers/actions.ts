@@ -134,6 +134,15 @@ export async function createSite(customerId: string, formData: FormData) {
       ? Number(formData.get("blended_retail_rate_php_kwh"))
       : null,
     net_metering_eligible: formData.get("net_metering_eligible") === "on",
+    // Export/generation credit rate — distinct from the blended retail
+    // rate above. Column already existed on `sites` and was already read
+    // by the calc engine's net-metering export-credit math
+    // (recalculateEngineering, quotations/actions.ts), but this create
+    // form never exposed it, so it was only settable by direct SQL. Same
+    // shape of gap as the roof/technical-detail fields below.
+    net_metering_export_rate_php_kwh: formData.get("net_metering_export_rate_php_kwh")
+      ? Number(formData.get("net_metering_export_rate_php_kwh"))
+      : null,
     peak_sun_hours_per_day: formData.get("peak_sun_hours_per_day")
       ? Number(formData.get("peak_sun_hours_per_day"))
       : null,
@@ -182,6 +191,9 @@ export async function updateSite(siteId: string, customerId: string, formData: F
       ? Number(formData.get("blended_retail_rate_php_kwh"))
       : null,
     net_metering_eligible: formData.get("net_metering_eligible") === "on",
+    net_metering_export_rate_php_kwh: formData.get("net_metering_export_rate_php_kwh")
+      ? Number(formData.get("net_metering_export_rate_php_kwh"))
+      : null,
     peak_sun_hours_per_day: formData.get("peak_sun_hours_per_day")
       ? Number(formData.get("peak_sun_hours_per_day"))
       : null,
